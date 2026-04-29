@@ -16,14 +16,14 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[meeting_id] = websocket
         self.audio_queues[meeting_id] = asyncio.Queue()
-        print(f"Client đã kết nối ws tới cuộc họp: {meeting_id}")
+        print(f"Client connected ws to meeting: {meeting_id}")
 
     def disconnect(self, meeting_id: str):
         if meeting_id in self.active_connections:
             del self.active_connections[meeting_id]
         if meeting_id in self.audio_queues:
             del self.audio_queues[meeting_id]
-        print(f"Client đã ngắt kết nối ws với cuộc họp: {meeting_id}")
+        print(f"Client disconnected ws from meeting: {meeting_id}")
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
@@ -48,7 +48,7 @@ async def process_audio_queue(meeting_id: str, websocket: WebSocket):
             chunk_count += 1
             
             # TODO: Đưa `audio_bytes` vào buffer hoặc chuyển thẳng vào mô hình STT (Whisper)
-            print(f"[Worker {meeting_id}] Đang xử lý trên RAM chunk {chunk_count}: {len(audio_bytes)} bytes")
+            print(f"[Worker {meeting_id}] Processing RAM chunk {chunk_count}: {len(audio_bytes)} bytes")
             
             # --- Tích hợp LLM/Whisper tại đây ---
             # Giả lập model STT
@@ -61,7 +61,7 @@ async def process_audio_queue(meeting_id: str, websocket: WebSocket):
             # Báo hiệu queue đã xử lý xong task này
             queue.task_done()
     except asyncio.CancelledError:
-        print(f"[Worker {meeting_id}] Đã dừng tiến trình bóc băng.")
+        print(f"[Worker {meeting_id}] Stopped transcription process.")
 
 
 @router.websocket("/{meeting_id}/stream")
@@ -82,7 +82,7 @@ async def websocket_endpoint(websocket: WebSocket, meeting_id: str):
             audio_bytes = await websocket.receive_bytes()
             chunk_count += 1
             
-            print(f"[Meeting {meeting_id}] Nhận luồng âm thanh {chunk_count} -> Đẩy vào RAM Queue")
+            print(f"[Meeting {meeting_id}] Received audio chunk {chunk_count} -> Pushing to RAM Queue")
             
             # Bắn thẳng raw_bytes vào asyncio.Queue thay vì lưu xuống /tmp/
             await manager.audio_queues[meeting_id].put(audio_bytes)
@@ -90,8 +90,8 @@ async def websocket_endpoint(websocket: WebSocket, meeting_id: str):
     except WebSocketDisconnect:
         manager.disconnect(meeting_id)
         processor_task.cancel()
-        print(f"Cuộc stream cho {meeting_id} đã kết thúc bình thường.")
+        print(f"Stream for {meeting_id} ended normally.")
     except Exception as e:
         manager.disconnect(meeting_id)
         processor_task.cancel()
-        print(f"Lỗi kết nối Socket cho meeting {meeting_id}: {str(e)}")
+        print(f"Socket error for meeting {meeting_id}: {str(e)}")

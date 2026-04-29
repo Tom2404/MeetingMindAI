@@ -51,9 +51,9 @@ def process_local_audio(audio_path: str, filename: str) -> str:
         return local_url
 
     except subprocess.CalledProcessError as e:
-        print(f"Lỗi khi chạy FFmpeg convert audio: {e.stderr}")
+        print(f"FFmpeg conversion error: {e.stderr}")
         raise RuntimeError("Không thể xử lý định dạng file âm thanh.")
     except Exception as e:
-        print(f"Lỗi hệ thống tập tin: {str(e)}")
+        print(f"Filesystem error: {str(e)}")
         raise RuntimeError("Không thể lưu file trên máy chủ.")
 

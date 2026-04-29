@@ -55,7 +55,7 @@ def summarize_meeting(
                 db.commit()
                 db.refresh(new_summary)
                 saved_id = new_summary.id
-                print(f"[LLM] ✅ Đã lưu Summary vào DB cho meeting_id={meeting.id}")
+                print(f"[LLM] Success: Summary saved to DB for meeting_id={meeting.id}")
 
         return {
             "message": "Trích xuất bằng Trí Tuệ Nhân Tạo Llama 3.2 thành công.",

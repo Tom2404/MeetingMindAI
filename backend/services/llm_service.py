@@ -3,7 +3,7 @@ import requests
 from requests.exceptions import RequestException
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-# Mặc định sử dụng model llama3.2 (bạn có thể đổi thành 'qwen2', 'phi3' hoặc 'vit5' tùy bạn cài)
+# Default using llama3.2
 OLLAMA_MODEL = "llama3.2" 
 
 SYSTEM_PROMPT = """You are a highly efficient assistant specializing in professional meeting analysis and summarization.
@@ -39,33 +39,37 @@ Your response must be a single JSON object with EXACTLY these 3 keys:
 
 def generate_meeting_summary(transcript_text: str) -> dict:
     """
-    Gọi Local Ollama API để phân tích transcript.
-    Trả về Dict/JSON chứa summary, decisions, action_items.
+    Call local Ollama API to analyze transcript.
+    Returns dict with summary, decisions, action_items.
     """
-    # Tách riêng System Prompt và User Prompt để LLM hiểu vai trò tốt hơn
-    user_prompt = f"Nội dung cuộc họp:\n{transcript_text}"
+    user_prompt = f"Meeting transcript:\n{transcript_text}"
 
     payload = {
         "model": OLLAMA_MODEL,
-        "system": SYSTEM_PROMPT,   # System prompt riêng biệt (vai trò + format)
-        "prompt": user_prompt,     # User prompt chỉ chứa nội dung transcript
+        "system": SYSTEM_PROMPT,
+        "prompt": user_prompt,
         "stream": False,
-        "format": "json"           # Ép chuẩn JSON sinh ra từ LLM
+        "format": "json"
     }
 
     try:
-        response = requests.post(OLLAMA_API_URL, json=payload, timeout=120)
-        response.raise_for_status()
+        print(f"[LLM] Sending summary request to Ollama ({OLLAMA_MODEL})...")
+        # Timeout 300s for weak hardware
+        response = requests.post(OLLAMA_API_URL, json=payload, timeout=300)
+        
+        if response.status_code != 200:
+            print(f"[Ollama Error] HTTP Status: {response.status_code}")
+            response.raise_for_status()
 
         data = response.json()
         llm_output_str = data.get("response", "")
 
-        # Chuyển chuỗi JSON text thành Dict
+        # Parse JSON string from LLM
         parsed_json = json.loads(llm_output_str)
 
-        # Đảm bảo cấu trúc bảo mật không bị thiếu key gây lỗi React (FE)
+        # Ensure correct structure for Frontend
         result = {
-            "summary_text": parsed_json.get("summary", "Không có tóm tắt."),
+            "summary_text": parsed_json.get("summary", "No summary available."),
             "decisions": parsed_json.get("decisions", []),
             "action_items": parsed_json.get("action_items", [])
         }
@@ -73,11 +77,11 @@ def generate_meeting_summary(transcript_text: str) -> dict:
         return result
 
     except RequestException as e:
-        print(f"[Ollama Error] Không thể kết nối tới mô hình chạy local. {e}")
-        raise RuntimeError("LLM Service đang gặp lỗi tắt hoặc chưa bật Ollama.")
+        print(f"[Ollama Error] Connection failed: {str(e)}")
+        raise RuntimeError("LLM Service error: Ollama might be offline.")
     except json.JSONDecodeError as e:
-        print(f"[LLM JSON Error] Trả về định dạng lỗi: {str(e)}")
-        raise RuntimeError("LLM không trả đúng định dạng JSON.")
+        print(f"[LLM JSON Error] Invalid JSON: {str(e)}")
+        raise RuntimeError("LLM did not return valid JSON.")
     except Exception as e:
-        print(f"[Unknown Error] {e}")
+        print(f"[LLM Error] Unexpected error: {str(e)}")
         raise

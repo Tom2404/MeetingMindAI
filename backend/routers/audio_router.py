@@ -182,5 +182,5 @@ async def upload_audio_local(
     except Exception as e:
         db.delete(new_meeting)
         db.commit()
-        print(f"Lỗi hệ thống khi upload local: {str(e)}")
+        print(f"System error during local upload: {str(e)}")
         raise HTTPException(status_code=500, detail="Đã xảy ra lỗi trong quá trình xử lý file trên máy chủ.")
