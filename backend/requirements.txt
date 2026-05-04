@@ -4,3 +4,4 @@ sqlalchemy
 python-multipart
 requests
 faster-whisper
+google-genai

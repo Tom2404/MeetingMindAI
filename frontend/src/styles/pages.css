@@ -1,0 +1,183 @@
+/* ═══════════════════════════════════════════
+   Pages — Google Meet + Azota Patterns
+   ═══════════════════════════════════════════ */
+
+/* ─── Meeting Setup ─── */
+.setup-form { display:flex; flex-direction:column; gap:var(--space-4); }
+.setup-method { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); margin-top:var(--space-2); }
+.setup-method__option {
+  display:flex; flex-direction:column; align-items:center; gap:var(--space-2);
+  padding:var(--space-5) var(--space-4); border-radius:var(--radius-lg);
+  border:2px solid var(--border-default); cursor:pointer;
+  transition:all var(--duration-normal) var(--ease-m3); background:var(--bg-surface);
+}
+.setup-method__option:hover { border-color:var(--google-blue-light); background:var(--google-blue-bg); }
+.setup-method__option--active { border-color:var(--google-blue); background:var(--google-blue-bg); box-shadow:0 0 0 1px var(--google-blue); }
+[data-theme="dark"] .setup-method__option:hover { background:var(--primary-50); }
+[data-theme="dark"] .setup-method__option--active { background:var(--primary-100); }
+.setup-method__icon { font-size:28px; }
+.setup-method__label { font-size:var(--text-sm); font-weight:600; color:var(--text-primary); }
+.setup-method__desc { font-size:var(--text-xs); color:var(--text-secondary); text-align:center; }
+
+/* ─── Upload — Google Drive Style ─── */
+.upload-zone {
+  border:2px dashed var(--border-default); background:var(--bg-surface);
+  padding:var(--space-10) var(--space-6); text-align:center;
+  border-radius:var(--radius-xl); transition:all var(--duration-normal) var(--ease-m3);
+  cursor:pointer;
+}
+.upload-zone:hover, .upload-zone--active { border-color:var(--google-blue); background:var(--google-blue-bg); }
+[data-theme="dark"] .upload-zone:hover, [data-theme="dark"] .upload-zone--active { background:var(--primary-50); }
+.upload-zone__icon { font-size:40px; margin-bottom:var(--space-3); opacity:0.5; display:block; }
+.upload-zone__title { font-weight:500; color:var(--text-primary); margin-bottom:var(--space-2); }
+.upload-zone__subtitle { color:var(--text-secondary); font-size:var(--text-sm); }
+
+.file-info { padding:var(--space-4); background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-md); }
+.file-info__row { display:flex; justify-content:space-between; margin-bottom:var(--space-3); font-size:var(--text-sm); }
+.file-info__name { font-weight:500; color:var(--text-primary); }
+.file-info__size { color:var(--text-secondary); }
+
+.progress-bar { height:6px; background:var(--bg-surface-hover); border-radius:var(--radius-full); overflow:hidden; }
+.progress-bar__fill { height:100%; background:var(--google-blue); transition:width 0.4s ease; border-radius:var(--radius-full); }
+.progress-bar__fill--green { background:var(--google-green); }
+
+/* ─── Recorder — Google Meet In-Call Style ─── */
+.recorder { display:flex; flex-direction:column; align-items:center; padding:var(--space-6) 0; }
+.recorder__wave {
+  width:100%; height:120px; background:var(--bg-body);
+  border-radius:var(--radius-lg); border:1px solid var(--border-default);
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:var(--space-6); overflow:hidden;
+}
+.recorder__wave-placeholder { color:var(--text-tertiary); font-size:var(--text-sm); }
+.recorder__timer {
+  font-family:var(--font-mono); font-size:2rem; font-weight:600;
+  margin-bottom:var(--space-8); color:var(--text-primary);
+  transition:color var(--duration-normal);
+}
+.recorder__timer--active { color:var(--google-red); }
+
+.recorder__controls { display:flex; gap:var(--space-5); align-items:center; }
+.recorder__btn {
+  border-radius:50%; border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--duration-fast) var(--ease-m3);
+}
+.recorder__btn:active { transform:scale(0.93); }
+/* Mic button — Google Blue filled circle */
+.recorder__btn--mic {
+  width:64px; height:64px; background:var(--google-blue); color:#fff;
+  box-shadow:0 1px 3px rgba(26,115,232,0.3), 0 4px 12px rgba(26,115,232,0.2);
+}
+.recorder__btn--mic:hover { background:var(--primary-600); box-shadow:0 2px 6px rgba(26,115,232,0.4), 0 6px 16px rgba(26,115,232,0.25); }
+/* Stop button — Google Red + pulse */
+.recorder__btn--stop {
+  width:64px; height:64px; background:var(--google-red); color:#fff;
+  animation:recording-pulse 2s infinite;
+}
+.recorder__btn--stop:hover { background:var(--danger-600); }
+/* Pause button — Outlined */
+.recorder__btn--pause {
+  width:48px; height:48px; background:var(--bg-surface);
+  color:var(--text-primary); border:1.5px solid var(--border-default);
+  box-shadow:var(--shadow-xs);
+}
+.recorder__btn--pause:hover { background:var(--bg-surface-hover); border-color:var(--border-hover); }
+
+.recorder__status { margin-top:var(--space-5); font-size:var(--text-xs); display:flex; align-items:center; gap:var(--space-2); color:var(--text-secondary); }
+
+/* ─── Summary — Google Docs Style ─── */
+.summary { font-family:var(--font-sans); max-width:800px; margin:0 auto; }
+.summary__header { display:flex; justify-content:space-between; align-items:center; padding-bottom:var(--space-4); border-bottom:1px solid var(--border-default); margin-bottom:var(--space-5); }
+.summary__title { font-size:var(--text-lg); font-weight:600; color:var(--text-primary); font-family:var(--font-display); }
+.summary__actions { display:flex; gap:var(--space-2); align-items:center; }
+
+.summary__loading {
+  padding:var(--space-10); text-align:center;
+  background:var(--google-blue-bg); border-radius:var(--radius-lg);
+  border:1px solid var(--primary-100); animation:fadeIn 0.3s var(--ease-m3);
+}
+[data-theme="dark"] .summary__loading { background:var(--primary-50); border-color:rgba(138,180,248,0.15); }
+.summary__loading-text { margin-top:var(--space-4); font-weight:600; font-size:var(--text-base); color:var(--google-blue); }
+.summary__loading-timer { font-size:var(--text-xl); font-weight:700; color:var(--primary-600); margin:var(--space-2) 0; }
+.summary__loading-sub { font-size:var(--text-sm); color:var(--text-secondary); margin-top:var(--space-2); }
+
+.summary__sections { display:flex; flex-direction:column; gap:var(--space-4); animation:fadeInUp 0.4s var(--ease-m3); }
+
+.summary__section {
+  background:var(--bg-surface); padding:var(--space-5); border-radius:var(--radius-lg);
+  border:1px solid var(--border-default); box-shadow:var(--shadow-xs);
+}
+.summary__section-header { display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-4); }
+.summary__section-icon { font-size:20px; }
+.summary__section-title { font-size:var(--text-base); font-weight:600; }
+/* Left accent borders — Google colors */
+.summary__section--blue    { border-left:4px solid var(--google-blue); }
+.summary__section--green   { border-left:4px solid var(--google-green); }
+.summary__section--red     { border-left:4px solid var(--google-red); }
+.summary__section--highlight { border-left:4px solid var(--google-blue); }
+.summary__text { line-height:1.7; color:var(--text-primary); font-size:var(--text-sm); }
+
+.summary__decision-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:var(--space-2); }
+.summary__decision-item { padding:var(--space-3); background:var(--google-green-bg); border-radius:var(--radius-sm); font-size:var(--text-sm); font-weight:500; display:flex; align-items:flex-start; gap:var(--space-2); }
+[data-theme="dark"] .summary__decision-item { background:var(--success-50); }
+
+.summary__action-list { display:flex; flex-direction:column; gap:var(--space-3); }
+.summary__action-item {
+  display:flex; align-items:center; padding:var(--space-4);
+  background:var(--bg-surface); border:1px solid var(--border-default);
+  border-radius:var(--radius-md); cursor:pointer; transition:all var(--duration-fast) var(--ease-m3);
+}
+.summary__action-item:hover { border-color:var(--google-blue-light); box-shadow:var(--shadow-sm); }
+.summary__action-item--done { opacity:0.55; }
+.summary__action-item--done .summary__action-name { text-decoration:line-through; }
+.summary__action-check { width:20px; height:20px; margin-right:var(--space-4); cursor:pointer; accent-color:var(--google-blue); }
+.summary__action-info { flex:1; }
+.summary__action-name { font-weight:600; font-size:var(--text-sm); color:var(--text-primary); }
+.summary__action-meta { display:flex; gap:var(--space-4); font-size:var(--text-xs); color:var(--text-secondary); margin-top:var(--space-1); }
+
+/* ─── History — Google Meet History ─── */
+.history__header { display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-4); }
+.history__count { font-size:var(--text-sm); color:var(--text-secondary); }
+.history__list { display:flex; flex-direction:column; gap:var(--space-2); }
+.history__item {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:var(--space-4) var(--space-5); background:var(--bg-surface);
+  border:1px solid var(--border-default); border-radius:var(--radius-md);
+  transition:all var(--duration-fast) var(--ease-m3); cursor:pointer;
+}
+.history__item:hover { border-color:var(--google-blue-light); box-shadow:var(--shadow-sm); }
+.history__item-title { font-weight:600; font-size:var(--text-sm); color:var(--text-primary); margin-bottom:var(--space-1); }
+.history__item-date { font-size:var(--text-xs); color:var(--text-secondary); }
+.history__item-right { display:flex; align-items:center; gap:var(--space-3); }
+
+/* ─── AI Status — Google Workspace ─── */
+.ai-status { border-radius:var(--radius-lg); border:1px solid; overflow:hidden; transition:all var(--duration-normal); margin-bottom:var(--space-5); }
+.ai-status--ok { border-color:var(--success-100); background:var(--google-green-bg); }
+.ai-status--error { border-color:var(--danger-100); background:var(--google-red-bg); }
+[data-theme="dark"] .ai-status--ok { border-color:rgba(52,168,83,0.2); background:var(--success-50); }
+[data-theme="dark"] .ai-status--error { border-color:rgba(234,67,53,0.2); background:var(--danger-50); }
+
+.ai-status__summary { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-4); cursor:pointer; user-select:none; }
+.ai-status__label { flex:1; font-size:var(--text-sm); font-weight:600; }
+.ai-status__label--ok { color:var(--success-700); }
+.ai-status__label--error { color:var(--danger-700); }
+[data-theme="dark"] .ai-status__label--ok { color:var(--google-green-light); }
+[data-theme="dark"] .ai-status__label--error { color:var(--google-red-light); }
+
+.ai-status__detail { border-top:1px solid rgba(0,0,0,0.06); padding:var(--space-3) var(--space-4); display:flex; flex-direction:column; gap:var(--space-2); }
+.ai-status__row {
+  display:flex; align-items:flex-start; gap:var(--space-3);
+  padding:var(--space-3); border-radius:var(--radius-sm);
+  background:rgba(255,255,255,0.6); border:1px solid rgba(0,0,0,0.04);
+  transition:background var(--duration-fast);
+}
+.ai-status__row:hover { background:rgba(255,255,255,0.8); }
+[data-theme="dark"] .ai-status__row { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.06); }
+
+.ai-status__guide { margin-top:var(--space-2); padding:var(--space-3) var(--space-4); border-radius:var(--radius-sm); background:var(--google-yellow-bg); border:1px solid var(--warning-100); font-size:var(--text-xs); color:var(--warning-700); }
+[data-theme="dark"] .ai-status__guide { background:var(--warning-50); border-color:rgba(251,188,4,0.15); }
+.ai-status__guide ul { margin:var(--space-2) 0 0; padding-left:18px; line-height:1.8; }
+.ai-status__guide code { background:rgba(251,188,4,0.15); padding:1px 5px; border-radius:4px; font-size:11px; font-family:var(--font-mono); }
+
+@media print { .no-print{display:none!important} body{background:#fff} .summary{box-shadow:none;border:none} }

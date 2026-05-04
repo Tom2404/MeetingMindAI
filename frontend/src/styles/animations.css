@@ -1,0 +1,50 @@
+/* ═══════════════════════════════════════════
+   Animations — M3 Expressive Spring Motion
+   ═══════════════════════════════════════════ */
+
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInScale { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
+@keyframes slideInLeft { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
+@keyframes slideInRight { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
+@keyframes overlayFadeIn { from{opacity:0} to{opacity:1} }
+@keyframes modalSlideUp { from{opacity:0;transform:translateY(24px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+
+/* M3 Expressive Spring */
+@keyframes m3-press { 0%{transform:scale(1)} 50%{transform:scale(0.96)} 100%{transform:scale(1)} }
+@keyframes m3-bounce { 0%{transform:scale(0.9);opacity:0} 60%{transform:scale(1.02)} 100%{transform:scale(1);opacity:1} }
+
+/* Google Meet Recording Pulse */
+@keyframes recording-pulse {
+  0%,100%{box-shadow:0 0 0 0 rgba(234,67,53,0.5)} 50%{box-shadow:0 0 0 14px rgba(234,67,53,0)}
+}
+@keyframes recording-dot {
+  0%,100%{opacity:1} 50%{opacity:0.4}
+}
+
+/* Status Pulses */
+@keyframes pulseGlow {
+  0%,100%{box-shadow:0 0 0 0 rgba(52,168,83,0.4)} 50%{box-shadow:0 0 0 6px rgba(52,168,83,0)}
+}
+@keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+/* Shimmer */
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+
+/* Utility Classes */
+.animate-spin { animation:spin 0.8s linear infinite; }
+.animate-fade-in { animation:fadeIn 0.35s var(--ease-m3) both; }
+.animate-fade-in-up { animation:fadeInUp 0.45s var(--ease-m3) both; }
+.animate-m3-bounce { animation:m3-bounce 0.5s var(--ease-m3-spring) both; }
+
+.stagger-children > *:nth-child(1){animation-delay:0ms}
+.stagger-children > *:nth-child(2){animation-delay:50ms}
+.stagger-children > *:nth-child(3){animation-delay:100ms}
+.stagger-children > *:nth-child(4){animation-delay:150ms}
+.stagger-children > *:nth-child(5){animation-delay:200ms}
+
+.skeleton {
+  background:linear-gradient(90deg, var(--bg-surface-active) 25%, var(--bg-surface-hover) 50%, var(--bg-surface-active) 75%);
+  background-size:200% 100%; animation:shimmer 1.5s ease-in-out infinite; border-radius:var(--radius-sm);
+}

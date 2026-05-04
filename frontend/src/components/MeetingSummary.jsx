@@ -1,354 +1,530 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token }) => {
-  const [summaryData, setSummaryData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [errorType, setErrorType] = useState(""); // 'ai' | 'network' | 'server'
+// ─── Priority badge config ───────────────────────────────────────────────────
+const PRIORITY_CONFIG = {
+  high:   { label: 'Cao',    color: '#ea4335', bg: 'rgba(234,67,53,0.10)',   icon: '🔴' },
+  medium: { label: 'Vừa',   color: '#fbbc04', bg: 'rgba(251,188,4,0.12)',   icon: '🟡' },
+  low:    { label: 'Thấp',  color: '#34a853', bg: 'rgba(52,168,83,0.10)',   icon: '🟢' },
+};
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+const PriorityBadge = ({ priority = 'medium' }) => {
+  const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.medium;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: '0.02em',
+      padding: '2px 8px', borderRadius: 'var(--radius-full)',
+      color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.color}33`,
+      whiteSpace: 'nowrap',
+    }}>
+      {cfg.icon} {cfg.label}
+    </span>
+  );
+};
+
+const KeyTopicTags = ({ topics = [] }) => {
+  if (!topics.length) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+      {topics.map((t, i) => (
+        <span key={i} style={{
+          fontSize: 'var(--text-xs)', fontWeight: 600,
+          padding: '3px 10px', borderRadius: 'var(--radius-full)',
+          background: 'var(--bg-surface-hover)',
+          color: 'var(--text-secondary)',
+          border: '1px solid var(--border-default)',
+          letterSpacing: '0.01em',
+        }}>
+          📌 {t}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+const DecisionCard = ({ decision, index }) => {
+  // Hỗ trợ cả cấu trúc cũ (string) và mới (object)
+  if (typeof decision === 'string') {
+    return (
+      <div style={{
+        display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start',
+        padding: 'var(--space-3)', borderRadius: 'var(--radius-md)',
+        background: 'var(--bg-surface-hover)', border: '1px solid var(--border-default)',
+        marginBottom: 'var(--space-2)',
+      }}>
+        <span style={{ color: 'var(--google-green)', fontWeight: 700, flexShrink: 0 }}>✓</span>
+        <strong style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{decision}</strong>
+      </div>
+    );
+  }
+
+  const { subject, action, outcome } = decision;
+  return (
+    <div style={{
+      borderRadius: 'var(--radius-lg)',
+      border: '1px solid rgba(52,168,83,0.25)',
+      background: 'var(--bg-surface)',
+      overflow: 'hidden',
+      marginBottom: 'var(--space-3)',
+      transition: 'box-shadow var(--duration-fast)',
+    }}
+    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(52,168,83,0.12)'}
+    onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+    >
+      {/* Header */}
+      <div style={{
+        background: 'rgba(52,168,83,0.08)', padding: 'var(--space-2) var(--space-4)',
+        borderBottom: '1px solid rgba(52,168,83,0.15)',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+      }}>
+        <span style={{ color: 'var(--google-green)', fontWeight: 700 }}>✅</span>
+        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--google-green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Quyết định #{index + 1}
+        </span>
+      </div>
+      {/* Body */}
+      <div style={{ padding: 'var(--space-3) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        {subject && (
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-tertiary)', minWidth: 64 }}>👤 Chủ thể</span>
+            <span style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>{subject}</span>
+          </div>
+        )}
+        {action && (
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-tertiary)', minWidth: 64 }}>🎯 Hành động</span>
+            <span style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>{action}</span>
+          </div>
+        )}
+        {outcome && (
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-tertiary)', minWidth: 64 }}>📌 Kết quả</span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontStyle: 'italic' }}>{outcome}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token, meetingInfo }) => {
+  const [summaryData, setSummaryData]       = useState(null);
+  const [isLoading, setIsLoading]           = useState(false);
+  const [errorMsg, setErrorMsg]             = useState('');
+  const [errorType, setErrorType]           = useState('');
   const [loadingSeconds, setLoadingSeconds] = useState(0);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved]               = useState(false);
+  const [aiProvider, setAiProvider]         = useState('ollama'); // 'ollama' or 'gemini'
+  const [editableTranscript, setEditableTranscript] = useState('');
+  const [activeTab, setActiveTab]           = useState('summary'); // 'transcript' or 'summary'
+  const lastProcessedTranscript             = useRef(null);
 
-  // Dùng ref để lưu trữ cờ nhằm tránh gọi lại LLM nhiều lần cho 1 Transcript giống hệt
-  const lastProcessedTranscript = useRef(null);
+  useEffect(() => { if (viewingSummaryId) loadSavedSummary(viewingSummaryId); }, [viewingSummaryId]);
 
-  // Nếu đang XEM summary đã lưu từ History → tải về từ server
   useEffect(() => {
-    if (viewingSummaryId) {
-      loadSavedSummary(viewingSummaryId);
+    if (activeTranscript) {
+      setEditableTranscript(activeTranscript);
+      if (!summaryData) {
+        setActiveTab('transcript');
+      }
     }
-  }, [viewingSummaryId]);
-
-  // TỰ ĐỘNG CHẠY TÓM TẮT NGAY KHI CÓ TRANSCRIPT CHUẨN XÁC YÊU CẦU LƯU CHUYỂN E2E
-  useEffect(() => {
-     if (activeTranscript && activeTranscript !== lastProcessedTranscript.current && !isLoading && !summaryData && !viewingSummaryId) {
-        lastProcessedTranscript.current = activeTranscript;
-        handleStartSummarize();
-     }
   }, [activeTranscript]);
 
-  // Bộ đếm giây cho Loading state tránh User tưởng model bị treo
   useEffect(() => {
     let interval = null;
-    if (isLoading) {
-      interval = setInterval(() => {
-        setLoadingSeconds(prev => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-      setLoadingSeconds(0);
-    }
+    if (isLoading) { interval = setInterval(() => setLoadingSeconds(p => p + 1), 1000); }
+    else { clearInterval(interval); setLoadingSeconds(0); }
     return () => clearInterval(interval);
   }, [isLoading]);
 
   const loadSavedSummary = async (mId) => {
-    setIsLoading(true);
-    setErrorMsg("");
-    setErrorType("");
-    setSummaryData(null);
-    setIsSaved(true);
-
+    setIsLoading(true); setErrorMsg(''); setErrorType(''); setSummaryData(null); setIsSaved(true);
     try {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      
-      const response = await fetch(`http://127.0.0.1:8000/api/v1/meetings/${mId}/summary`, { headers });
-      if (!response.ok) throw new Error(`server:${response.status}`);
-      
-      const data = await response.json();
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/meetings/${mId}/summary`, { headers });
+      if (!res.ok) throw new Error(`server:${res.status}`);
+      const data = await res.json();
       setSummaryData(data.summary);
+      if (data.transcript) {
+        setEditableTranscript(data.transcript);
+      }
+      setActiveTab('summary');
     } catch (err) {
       if (err.message?.startsWith('server:')) {
-        setErrorType('server');
-        setErrorMsg(`Không tải được bản tóm tắt (mã lỗi ${err.message.replace('server:', '')})`);
+        setErrorType('server'); setErrorMsg(`Không tải được (mã lỗi ${err.message.replace('server:', '')})`);
       } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setErrorType('network');
-        setErrorMsg('Không kết nối được tới Backend. Hãy kiểm tra server đang chạy không.');
+        setErrorType('network'); setErrorMsg('Không kết nối được tới Backend.');
       } else {
-        setErrorType('server');
-        setErrorMsg(err.message || 'Không thể tải bản tóm tắt đã lưu.');
+        setErrorType('server'); setErrorMsg(err.message || 'Không thể tải bản tóm tắt.');
       }
-    } finally {
-      setIsLoading(false);
-    }
+    } finally { setIsLoading(false); }
   };
 
-  const handleStartSummarize = async () => {
+  const handleStartSummarize = async (overrideProvider) => {
     if (!activeTranscript) return;
-    
-    setIsLoading(true);
-    setErrorMsg("");
-    setErrorType("");
-    setLoadingSeconds(0);
-    setIsSaved(false);
-
+    setIsLoading(true); setErrorMsg(''); setErrorType(''); setLoadingSeconds(0); setIsSaved(false);
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const payload = {
+        transcript: editableTranscript || activeTranscript,
+        meeting_id: meetingId || null,
+        ai_provider: overrideProvider || aiProvider
+      };
 
-      const response = await fetch('http://127.0.0.1:8000/api/v1/meetings/summarize', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ 
-          transcript: activeTranscript,
-          meeting_id: meetingId || null
-        })
+      const res = await fetch('http://127.0.0.1:8000/api/v1/meetings/summarize', {
+        method: 'POST', headers,
+        body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        // Phân biệt lỗi server 500 (LLM crash) vs lỗi khác
-        if (response.status === 500) {
-          const errData = await response.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 500) {
+          const errData = await res.json().catch(() => ({}));
           const detail = errData.detail || '';
           if (detail.toLowerCase().includes('ollama') || detail.toLowerCase().includes('llm') || detail.toLowerCase().includes('connection')) {
-            setErrorType('ai');
-            setErrorMsg('Hệ thống không nhận diện được AI (Ollama chưa khởi động hoặc model chưa được cài). Hãy kiểm tra thanh trạng thái AI phía trên.');
-          } else {
-            setErrorType('server');
-            setErrorMsg(`Lỗi xử lý nội bộ phía máy chủ. ${detail}`);
-          }
-        } else {
-          setErrorType('server');
-          setErrorMsg(`Lỗi máy chủ (${response.status})`);
-        }
+            setErrorType('ai'); setErrorMsg('AI chưa khởi động (Ollama). Kiểm tra thanh trạng thái AI.');
+          } else { setErrorType('server'); setErrorMsg(`Lỗi nội bộ. ${detail}`); }
+        } else { setErrorType('server'); setErrorMsg(`Lỗi máy chủ (${res.status})`); }
         return;
       }
-
-      const responseData = await response.json();
+      const responseData = await res.json();
       setSummaryData(responseData.data);
+      setActiveTab('summary');
       if (responseData.saved_id) setIsSaved(true);
-
     } catch (err) {
-      // TypeError: Failed to fetch → Backend không chạy
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setErrorType('network');
-        setErrorMsg('Không kết nối được tới Backend (http://127.0.0.1:8000). Hãy kiểm tra server đang chạy không.');
-      } else {
-        setErrorType('ai');
-        setErrorMsg(err.message || 'Hệ thống không nhận diện được AI. Đã xảy ra lỗi khi kết nối tới LLM Local.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
+        setErrorType('network'); setErrorMsg('Không kết nối được tới Backend.');
+      } else { setErrorType('ai'); setErrorMsg(err.message || 'Lỗi kết nối tới LLM.'); }
+    } finally { setIsLoading(false); }
   };
 
-  const toggleActionItem = (id) => {
+  const toggleActionItem = (uid) => {
     if (!summaryData) return;
-    const updatedItems = summaryData.action_items.map((item, index) =>
-      (item.id || index) === id ? { ...item, completed: !item.completed } : item
+    const updated = summaryData.action_items.map((item, i) =>
+      (item.id || i) === uid ? { ...item, completed: !item.completed } : item
     );
-    setSummaryData({ ...summaryData, action_items: updatedItems });
+    setSummaryData({ ...summaryData, action_items: updated });
   };
 
   const handleExportTxt = () => {
     if (!summaryData) return;
-    
-    let textContent = `KẾT QUẢ CUỘC HỌP: ${meetingId || "Test"}\n`;
-    textContent += `=====================================\n\n`;
-    
-    textContent += `1. TÓM TẮT NỘI DUNG\n-------------------\n`;
-    textContent += `${summaryData.summary_text}\n\n`;
-    
-    textContent += `2. CÁC QUYẾT ĐỊNH ĐƯỢC CHỐT\n---------------------------\n`;
-    (summaryData.decisions || []).forEach((dec) => {
-      textContent += `- ${dec}\n`;
+    const title = meetingInfo?.meetingName || meetingId || 'Meeting';
+    let t = `KẾT QUẢ CUỘC HỌP: ${title}\n${'='.repeat(50)}\n\n`;
+    if (meetingInfo) {
+      if (meetingInfo.host) t += `Chủ trì:  ${meetingInfo.host}\n`;
+      if (meetingInfo.participants) t += `Tham dự: ${meetingInfo.participants}\n`;
+      t += '\n';
+    }
+    if (summaryData.key_topics?.length) {
+      t += `CHỦ ĐỀ CHÍNH: ${summaryData.key_topics.join(' • ')}\n\n`;
+    }
+    t += `1. TÓM TẮT\n${'-'.repeat(30)}\n${summaryData.summary_text}\n\n`;
+    t += `2. CÁC QUYẾT ĐỊNH\n${'-'.repeat(30)}\n`;
+    (summaryData.decisions || []).forEach((d, i) => {
+      if (typeof d === 'string') { t += `${i+1}. ${d}\n`; }
+      else { t += `${i+1}. [${d.subject}] ${d.action} → ${d.outcome}\n`; }
     });
-    textContent += `\n`;
-    
-    textContent += `3. ACTION ITEMS (VIỆC CẦN LÀM)\n------------------------------\n`;
-    (summaryData.action_items || []).forEach((item) => {
-      textContent += `[${item.completed ? 'x' : ' '}] ${item.task_name}\n`;
-      textContent += `    Phụ trách: ${item.assignee} | Hạn chót: ${item.deadline}\n`;
+    if (!(summaryData.decisions || []).length) t += 'Không có quyết định nào được chốt.\n';
+    t += `\n3. ACTION ITEMS\n${'-'.repeat(30)}\n`;
+    (summaryData.action_items || []).forEach(item => {
+      const chk = item.completed ? '[x]' : '[ ]';
+      const pri = item.priority ? `[${item.priority.toUpperCase()}] ` : '';
+      t += `${chk} ${pri}${item.task_name}\n    Phụ trách: ${item.assignee || 'Trống'} | Hạn: ${item.deadline || 'Trống'}\n`;
     });
-
-    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    if (summaryData.processing_metadata) {
+      t += `\n${'='.repeat(50)}\nXử lý bởi: ${summaryData.processing_metadata.model_used} | ${summaryData.processing_metadata.timestamp}\n`;
+    }
+    const blob = new Blob([t], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Meeting_Summary_${meetingId}.txt`;
-    link.click();
+    const a = document.createElement('a');
+    a.href = url; a.download = `Summary_${title}.txt`; a.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPdf = () => {
-    window.print();
-  };
+  const handleExportPdf = () => window.print();
+
+  const title = meetingInfo?.meetingName || meetingId || 'Test';
+  const decisions = summaryData?.decisions || [];
+  const actionItems = summaryData?.action_items || [];
+  const keyTopics = summaryData?.key_topics || [];
+  const completedCount = actionItems.filter(i => i.completed).length;
 
   return (
-    <div className="meeting-summary" style={{ fontFamily: 'Inter, sans-serif', maxWidth: '800px', margin: '0 auto', color: '#333' }}>
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { background: white; }
-          .meeting-summary { box-shadow: none; border: none; }
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
-
-      {/* Header */}
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eaeaea', paddingBottom: '10px' }}>
-        <h2>Kết quả Khai thác ({meetingId || "Test"})</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {isSaved && (
-            <span style={{ 
-              fontSize: '12px', color: '#fff', fontWeight: '600',
-              background: 'linear-gradient(135deg, #667eea, #764ba2)',
-              padding: '4px 12px', borderRadius: '20px'
-            }}>
-              💾 Đã lưu
-            </span>
-          )}
-          <span style={{ fontSize: '13px', color: '#0f9d58', fontWeight: 'bold' }}>Hoàn toàn tự động</span>
+    <div className="summary">
+      {/* ── Header ── */}
+      <div className="summary__header no-print">
+        <div className="summary__title">Kết quả Khai thác ({title})</div>
+        <div className="summary__actions">
+          {isSaved && <span className="mm-badge mm-badge--saved">💾 Đã lưu</span>}
         </div>
       </div>
 
+      {/* ── Loading ── */}
       {isLoading && (
-         <div className="no-print" style={{ marginTop: '40px', padding: '40px', textAlign: 'center', color: '#4285f4', background: '#e8f0fe', borderRadius: '12px', border: '1px solid #d2e3fc' }}>
-            <div style={{ 
-               display: 'inline-block', width: '40px', height: '40px', 
-               border: '4px solid rgba(66, 133, 244, 0.2)',
-               borderTop: '4px solid #4285f4', borderRadius: '50%',
-               animation: 'spin 1s linear infinite'
-            }}></div>
-            <p style={{ marginTop: '16px', fontWeight: 600, fontSize: '16px' }}>
-              {viewingSummaryId ? 'Đang tải bản tóm tắt đã lưu...' : 'Đang kết nối LLM (Llama / Ollama) tóm tắt cuộc họp...'}
-            </p>
-            {!viewingSummaryId && (
-              <>
-                <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#1a73e8', margin: '8px 0' }}>{loadingSeconds} giây</p>
-                <div style={{ width: '60%', height: '4px', background: 'rgba(66, 133, 244, 0.2)', borderRadius: '2px', margin: '0 auto', overflow: 'hidden' }}>
-                   <div style={{ width: `${Math.min((loadingSeconds/20)*100, 100)}%`, height: '100%', background: '#4285f4', transition: 'width 1s linear' }}></div>
+        <div className="summary__loading no-print">
+          <div className="mm-spinner mm-spinner--lg mm-spinner--primary" style={{ margin: '0 auto' }} />
+          <p className="summary__loading-text">
+            {viewingSummaryId ? 'Đang tải bản tóm tắt đã lưu...' : 'AI đang phân tích cuộc họp...'}
+          </p>
+          {!viewingSummaryId && (
+            <>
+              <p className="summary__loading-timer">{loadingSeconds} giây</p>
+              <div style={{ width: '60%', margin: '0 auto' }}>
+                <div className="progress-bar">
+                  <div className="progress-bar__fill" style={{ width: `${Math.min((loadingSeconds / 30) * 100, 95)}%` }} />
                 </div>
-                <p style={{ fontSize: '13px', color: '#666', marginTop: '10px' }}>*Giai đoạn này Trí Tuệ Nhân Tạo đang đọc tài liệu đã bóc băng để chiết xuất thông tin</p>
-              </>
-            )}
-         </div>
+              </div>
+              <p className="summary__loading-sub">*AI đang đọc và phân tích transcript — trích xuất quyết định & công việc</p>
+            </>
+          )}
+        </div>
       )}
 
+      {/* ── Error ── */}
       {errorMsg && (
-        <div style={{
-          padding: '16px 18px', marginTop: '20px', borderRadius: '10px',
-          border: `1px solid ${errorType === 'network' ? '#bfdbfe' : errorType === 'ai' ? '#fed7aa' : '#fecaca'}`,
-          background: errorType === 'network' ? '#eff6ff' : errorType === 'ai' ? '#fff7ed' : '#fff5f5',
-          display: 'flex', gap: '14px', alignItems: 'flex-start'
-        }}>
-          {/* Icon theo loại lỗi */}
-          <span style={{ fontSize: '22px', lineHeight: 1, flexShrink: 0, marginTop: '1px' }}>
+        <div className={`mm-alert mm-alert--${errorType === 'network' ? 'info' : errorType === 'ai' ? 'warning' : 'danger'}`}
+          style={{ marginTop: 'var(--space-5)' }}>
+          <span className="mm-alert__icon">
             {errorType === 'network' ? '🔌' : errorType === 'ai' ? '🤖' : '⚠️'}
           </span>
-          <div style={{ flex: 1 }}>
-            <strong style={{ 
-              display: 'block', marginBottom: '4px', fontSize: '14px',
-              color: errorType === 'network' ? '#1e40af' : errorType === 'ai' ? '#c2410c' : '#b91c1c'
-            }}>
+          <div className="mm-alert__content">
+            <span className="mm-alert__title">
               {errorType === 'network' && 'Không kết nối được Backend'}
-              {errorType === 'ai' && 'Hệ thống không nhận diện được AI'}
-              {errorType === 'server' && 'Lỗi xử lý phía máy chủ'}
-              {!errorType && 'Lỗi hệ thống'}
-            </strong>
-            <span style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.5' }}>{errorMsg}</span>
+              {errorType === 'ai'      && 'Không nhận diện được AI'}
+              {errorType === 'server'  && 'Lỗi xử lý phía máy chủ'}
+              {!errorType              && 'Lỗi hệ thống'}
+            </span>
+            <span className="mm-alert__message">{errorMsg}</span>
           </div>
-          <button
-            onClick={viewingSummaryId ? () => loadSavedSummary(viewingSummaryId) : handleStartSummarize}
-            style={{
-              flexShrink: 0, padding: '6px 14px',
-              background: errorType === 'ai' ? '#ea580c' : '#dc2626',
-              color: '#fff', border: 'none', borderRadius: '6px',
-              cursor: 'pointer', fontSize: '13px', fontWeight: '500',
-              fontFamily: 'Inter, sans-serif'
-            }}
-          >
+          <button className="mm-btn mm-btn--sm mm-btn--danger"
+            onClick={viewingSummaryId ? () => loadSavedSummary(viewingSummaryId) : () => handleStartSummarize()}>
             Thử lại
           </button>
         </div>
       )}
 
-      {!summaryData && !isLoading && !errorMsg && (
-        <div className="no-print" style={{ marginTop: '40px', textAlign: 'center', color: '#5f6368', padding: '40px', background: '#f8f9fa', borderRadius: '8px', border: '1px dashed #dadce0' }}>
-          <p>Chưa có dữ liệu. Vui lòng ghi âm hoặc chờ hệ thống bóc băng hoàn tất.</p>
+      {/* ── Tabs (nếu có nội dung) ── */}
+      {editableTranscript && !isLoading && !errorMsg && (
+        <div className="mm-tabs no-print" style={{ display: 'flex', gap: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', marginBottom: 'var(--space-5)' }}>
+          <button 
+            style={{ 
+              background: 'none', border: 'none', padding: 'var(--space-3) var(--space-2)', 
+              color: activeTab === 'transcript' ? 'var(--primary-500)' : 'var(--text-secondary)',
+              borderBottom: activeTab === 'transcript' ? '2px solid var(--primary-500)' : '2px solid transparent',
+              fontWeight: activeTab === 'transcript' ? 600 : 500,
+              cursor: 'pointer', fontSize: 'var(--text-md)'
+            }}
+            onClick={() => setActiveTab('transcript')}
+          >
+            Văn bản bóc băng
+          </button>
+          {summaryData && (
+            <button 
+              style={{ 
+                background: 'none', border: 'none', padding: 'var(--space-3) var(--space-2)', 
+                color: activeTab === 'summary' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                borderBottom: activeTab === 'summary' ? '2px solid var(--primary-500)' : '2px solid transparent',
+                fontWeight: activeTab === 'summary' ? 600 : 500,
+                cursor: 'pointer', fontSize: 'var(--text-md)'
+              }}
+              onClick={() => setActiveTab('summary')}
+            >
+              Kết quả Tóm tắt
+            </button>
+          )}
         </div>
       )}
 
-      {summaryData && !isLoading && (
-        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* ── Empty State ── */}
+      {!summaryData && !editableTranscript && !isLoading && !errorMsg && (
+        <div className="mm-empty no-print">
+          <div className="mm-empty__icon">📝</div>
+          <div className="mm-empty__title">Chưa có dữ liệu tóm tắt</div>
+          <div className="mm-empty__desc">Vui lòng ghi âm hoặc tải file lên. Khi đã bóc băng xong, bạn có thể chạy AI để tóm tắt.</div>
+        </div>
+      )}
+
+      {/* ── Transcript Content ── */}
+      {activeTab === 'transcript' && editableTranscript && !isLoading && !errorMsg && (
+        <div className="transcript-section animate-fade-in">
+          <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none' }}>
+            <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Bạn có thể kiểm tra và chỉnh sửa nội dung trước khi tóm tắt để có kết quả chính xác nhất.</span>
+              <span style={{ fontWeight: 600 }}>{editableTranscript.length} ký tự</span>
+            </div>
+            <textarea
+              value={editableTranscript}
+              onChange={(e) => setEditableTranscript(e.target.value)}
+              style={{
+                width: '100%', minHeight: '300px', padding: 'var(--space-3)',
+                borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)',
+                background: 'var(--bg-body)', color: 'var(--text-primary)',
+                fontFamily: 'inherit', fontSize: 'var(--text-md)', lineHeight: 1.6,
+                resize: 'vertical', outline: 'none'
+              }}
+              placeholder="Nội dung bóc băng sẽ hiển thị ở đây..."
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary-400)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border-default)'}
+            />
+          </div>
           
-          <div className="no-print" style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: '#666', fontStyle: 'italic' }}>*Dữ liệu sinh từ AI, nên kiểm tra lại trước khi in ấn.</span>
-            <div style={{ display: 'flex', gap: '10px' }}>
+          {/* Hybrid Provider Selector & Summarize Button */}
+          {!summaryData && (
+            <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', background: 'var(--bg-surface-hover)', padding: 'var(--space-1)', borderRadius: 'var(--radius-full)' }}>
+                <button 
+                  className={`mm-btn mm-btn--sm ${aiProvider === 'ollama' ? 'mm-btn--primary' : 'mm-btn--ghost'}`}
+                  style={{ borderRadius: 'var(--radius-full)' }}
+                  onClick={() => setAiProvider('ollama')}
+                >
+                  🔒 Local (An Toàn)
+                </button>
+                <button 
+                  className={`mm-btn mm-btn--sm ${aiProvider === 'gemini' ? 'mm-btn--primary' : 'mm-btn--ghost'}`}
+                  style={{ borderRadius: 'var(--radius-full)' }}
+                  onClick={() => setAiProvider('gemini')}
+                >
+                  ☁️ Cloud (Thông minh)
+                </button>
+              </div>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', maxWidth: '300px', textAlign: 'center' }}>
+                {aiProvider === 'ollama' 
+                  ? '*Bảo mật tuyệt đối 100%, chạy hoàn toàn trên máy tính của bạn.' 
+                  : '*Tốc độ cực nhanh và nhận diện Tiếng Việt xuất sắc bằng AI đám mây.'}
+              </p>
               <button 
-                onClick={handleExportTxt}
-                style={{ background: '#343a40', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '5px', cursor: 'pointer' }}>
-                📄 Xuất TXT
+                className="mm-btn mm-btn--lg mm-btn--primary" 
+                onClick={() => handleStartSummarize()}
+                style={{ marginTop: 'var(--space-2)' }}
+              >
+                ✨ Bắt đầu Tóm tắt bằng {aiProvider === 'ollama' ? 'Local AI' : 'Gemini AI'}
               </button>
-              <button 
-                onClick={handleExportPdf}
-                style={{ background: '#ea4335', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '5px', cursor: 'pointer' }}>
-                🖨 In Dữ Liệu
-              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Summary Content ── */}
+      {activeTab === 'summary' && summaryData && !isLoading && (
+        <div className="summary__sections">
+
+          {/* Export bar */}
+          <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+              *Dữ liệu sinh từ AI, nên kiểm tra lại.
+              {summaryData.processing_metadata && (
+                <> &nbsp;|&nbsp; Model: <strong>{summaryData.processing_metadata.model_used}</strong></>
+              )}
+            </span>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportTxt}>📄 Xuất TXT</button>
+              <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={handleExportPdf}>🖨 In</button>
             </div>
           </div>
 
-          <section style={{ background: '#f8f9fa', padding: '20px', borderRadius: '10px', borderLeft: '5px solid #4285f4' }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#4285f4' }}>📝 Tóm Tắt Tự Động (Llama)</h3>
-            <p style={{ lineHeight: '1.6', margin: 0 }}>{summaryData.summary_text}</p>
-          </section>
+          {/* ── 1. Summary + Key Topics ── */}
+          <div className="summary__section summary__section--blue">
+            <div className="summary__section-header">
+              <span className="summary__section-icon">📝</span>
+              <span className="summary__section-title" style={{ color: 'var(--google-blue)' }}>Tóm Tắt Tự Động</span>
+            </div>
+            <p className="summary__text">{summaryData.summary_text}</p>
+            <KeyTopicTags topics={keyTopics} />
+          </div>
 
-          <section style={{ background: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#0f9d58' }}>🎯 Các Quyết Định Được Chốt</h3>
-            <ul style={{ paddingLeft: '20px', margin: 0, lineHeight: '1.8' }}>
-              {(summaryData.decisions || []).map((decision, index) => (
-                <li key={index}><strong>{decision}</strong></li>
-              ))}
-              {(summaryData.decisions || []).length === 0 && (
-                <li style={{ color: '#999', fontStyle: 'italic' }}>Không có quyết định nào được chốt.</li>
-              )}
-            </ul>
-          </section>
+          {/* ── 2. Decisions (structured cards) ── */}
+          <div className="summary__section summary__section--green">
+            <div className="summary__section-header">
+              <span className="summary__section-icon">🎯</span>
+              <span className="summary__section-title" style={{ color: 'var(--google-green)' }}>
+                Các Quyết Định Được Chốt
+                {decisions.length > 0 && (
+                  <span style={{
+                    marginLeft: 'var(--space-2)', fontSize: 'var(--text-xs)', fontWeight: 700,
+                    padding: '2px 8px', borderRadius: 'var(--radius-full)',
+                    background: 'rgba(52,168,83,0.15)', color: 'var(--google-green)',
+                  }}>
+                    {decisions.length}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div style={{ marginTop: 'var(--space-3)' }}>
+              {decisions.length > 0
+                ? decisions.map((d, i) => <DecisionCard key={i} decision={d} index={i} />)
+                : <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-3)', textAlign: 'center' }}>
+                    Không có quyết định nào đủ tiêu chí để ghi nhận.
+                  </p>
+              }
+            </div>
+          </div>
 
-          <section style={{ background: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#ea4335' }}>⚡ Action Items (Khoán Công Việc)</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {(summaryData.action_items || []).map((item, index) => {
-                const uniqueId = item.id || index;
+          {/* ── 3. Action Items ── */}
+          <div className="summary__section summary__section--red">
+            <div className="summary__section-header">
+              <span className="summary__section-icon">⚡</span>
+              <span className="summary__section-title" style={{ color: 'var(--google-red)' }}>
+                Action Items
+                {actionItems.length > 0 && (
+                  <span style={{
+                    marginLeft: 'var(--space-2)', fontSize: 'var(--text-xs)', fontWeight: 700,
+                    padding: '2px 8px', borderRadius: 'var(--radius-full)',
+                    background: 'rgba(234,67,53,0.12)', color: 'var(--google-red)',
+                  }}>
+                    {completedCount}/{actionItems.length}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="summary__action-list">
+              {actionItems.length > 0 ? actionItems.map((item, index) => {
+                const uid = item.id || index;
                 return (
-                  <label 
-                    key={uniqueId} 
-                    style={{ 
-                      display: 'flex', alignItems: 'center', padding: '12px', 
-                      background: item.completed ? '#e9ecef' : '#fdfdfe', 
-                      border: '1px solid #ced4da', borderRadius: '5px',
-                      cursor: 'pointer', transition: 'all 0.2s',
-                      textDecoration: item.completed ? 'line-through' : 'none',
-                      color: item.completed ? '#6c757d' : '#212529'
-                    }}
-                  >
-                    <input 
-                      type="checkbox" 
-                      checked={!!item.completed} 
-                      onChange={() => toggleActionItem(uniqueId)}
-                      style={{ width: '20px', height: '20px', marginRight: '15px', cursor: 'pointer' }}
+                  <label key={uid} className={`summary__action-item ${item.completed ? 'summary__action-item--done' : ''}`}>
+                    <input
+                      type="checkbox"
+                      className="summary__action-check"
+                      checked={!!item.completed}
+                      onChange={() => toggleActionItem(uid)}
                     />
-                    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                      <span style={{ fontWeight: '600', fontSize: '16px' }}>{item.task_name}</span>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: '4px', opacity: 0.8 }}>
-                        <span>👤 Phụ trách: <strong>{item.assignee || 'Trống'}</strong></span>
-                        <span>📅 Hạn chót: <strong>{item.deadline || 'Trống'}</strong></span>
+                    <div className="summary__action-info" style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
+                        <span className="summary__action-name">{item.task_name}</span>
+                        <PriorityBadge priority={item.priority} />
+                      </div>
+                      <div className="summary__action-meta">
+                        <span>👤 {item.assignee || 'Trống'}</span>
+                        <span>📅 {item.deadline || 'Trống'}</span>
                       </div>
                     </div>
                   </label>
-                )
-              })}
-              {(summaryData.action_items || []).length === 0 && (
-                <p style={{ color: '#999', fontStyle: 'italic', textAlign: 'center', padding: '12px' }}>
-                  Không có công việc nào được trích xuất.
+                );
+              }) : (
+                <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', textAlign: 'center', padding: 'var(--space-4)' }}>
+                  Không có công việc cụ thể nào được trích xuất.
                 </p>
               )}
             </div>
-          </section>
 
+            {/* Progress bar for action items */}
+            {actionItems.length > 0 && (
+              <div style={{ marginTop: 'var(--space-4)', padding: '0 var(--space-1)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-1)' }}>
+                  <span>Tiến độ hoàn thành</span>
+                  <span>{Math.round((completedCount / actionItems.length) * 100)}%</span>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-bar__fill progress-bar__fill--green"
+                    style={{ width: `${(completedCount / actionItems.length) * 100}%`, transition: 'width 0.4s ease' }} />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

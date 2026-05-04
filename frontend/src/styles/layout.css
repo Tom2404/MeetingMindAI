@@ -1,0 +1,109 @@
+/* ═══════════════════════════════════════════
+   Layout — Google Meet Sidebar + Header
+   ═══════════════════════════════════════════ */
+
+.app-shell { display:flex; min-height:100vh; background:var(--bg-body); }
+
+/* ─── Sidebar — Google Meet Dark ─── */
+.sidebar {
+  width:var(--sidebar-width); background:var(--bg-sidebar);
+  display:flex; flex-direction:column; position:fixed;
+  top:0; left:0; bottom:0; z-index:50;
+  transition:transform var(--duration-slow) var(--ease-m3);
+  overflow-y:auto; overflow-x:hidden;
+}
+.sidebar__brand { display:flex; align-items:center; gap:var(--space-3); padding:var(--space-5) var(--space-5) var(--space-4); }
+.sidebar__logo {
+  width:36px; height:36px; border-radius:var(--radius-md);
+  background:var(--google-blue); display:flex; align-items:center;
+  justify-content:center; flex-shrink:0;
+}
+.sidebar__brand-name { font-size:var(--text-base); font-weight:700; color:#e8eaed; font-family:var(--font-display); letter-spacing:-0.3px; }
+
+.sidebar__nav { flex:1; padding:var(--space-2) var(--space-3); display:flex; flex-direction:column; gap:2px; }
+.sidebar__section-label {
+  font-size:11px; font-weight:500; color:var(--text-sidebar);
+  text-transform:uppercase; letter-spacing:0.8px;
+  padding:var(--space-5) var(--space-3) var(--space-2);
+}
+.sidebar__item {
+  display:flex; align-items:center; gap:var(--space-3);
+  padding:10px 14px; border-radius:var(--radius-full);
+  color:var(--text-sidebar); cursor:pointer;
+  transition:all var(--duration-fast) var(--ease-m3);
+  border:none; background:none; width:100%; text-align:left;
+  font-family:var(--font-sans); font-size:var(--text-sm); font-weight:500;
+}
+.sidebar__item:hover { background:var(--bg-sidebar-hover); color:var(--text-sidebar-active); }
+.sidebar__item--active {
+  background:var(--bg-sidebar-active); color:var(--google-blue-light); font-weight:600;
+}
+.sidebar__item-icon { width:22px; height:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sidebar__item-icon svg { width:20px; height:20px; }
+
+.sidebar__footer { padding:var(--space-3) var(--space-4); border-top:1px solid var(--border-sidebar); margin-top:auto; }
+.sidebar__user {
+  display:flex; align-items:center; gap:var(--space-3);
+  padding:var(--space-3); border-radius:var(--radius-full);
+  transition:background var(--duration-fast); cursor:pointer;
+}
+.sidebar__user:hover { background:var(--bg-sidebar-hover); }
+.sidebar__avatar {
+  width:34px; height:34px; border-radius:var(--radius-full);
+  background:var(--google-blue); display:flex; align-items:center;
+  justify-content:center; color:#fff; font-weight:700; font-size:var(--text-sm); flex-shrink:0;
+}
+.sidebar__user-name { font-size:var(--text-sm); font-weight:500; color:var(--text-sidebar-active); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sidebar__user-role { font-size:11px; color:var(--text-sidebar); margin-top:1px; }
+
+/* ─── Main Area ─── */
+.main-area { flex:1; margin-left:var(--sidebar-width); display:flex; flex-direction:column; min-height:100vh; }
+
+/* ─── Header — Google Clean ─── */
+.header {
+  height:var(--header-height); background:var(--bg-surface);
+  border-bottom:1px solid var(--border-default); display:flex;
+  align-items:center; justify-content:space-between;
+  padding:0 var(--space-6); position:sticky; top:0; z-index:40;
+}
+.header__left { display:flex; align-items:center; gap:var(--space-3); }
+.header__title { font-size:var(--text-base); font-weight:600; color:var(--text-primary); }
+.header__breadcrumb { font-size:var(--text-xs); color:var(--text-tertiary); margin-top:2px; }
+.header__right { display:flex; align-items:center; gap:var(--space-2); }
+.header__hamburger { display:none; background:none; border:none; cursor:pointer; padding:var(--space-2); border-radius:var(--radius-full); color:var(--text-primary); }
+.header__hamburger:hover { background:var(--bg-surface-hover); }
+
+.theme-toggle {
+  width:40px; height:40px; border-radius:var(--radius-full);
+  background:transparent; border:none;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:18px; transition:all var(--duration-fast); color:var(--text-secondary);
+}
+.theme-toggle:hover { background:var(--bg-surface-hover); color:var(--text-primary); }
+
+/* ─── Page Content ─── */
+.page-content { flex:1; padding:var(--space-6) var(--space-8); max-width:var(--content-max-width); width:100%; margin:0 auto; animation:fadeIn 0.3s var(--ease-m3); }
+.page-greeting { margin-bottom:var(--space-6); }
+.page-greeting__hello { font-size:var(--text-2xl); font-weight:700; color:var(--text-primary); margin-bottom:var(--space-1); font-family:var(--font-display); }
+.page-greeting__sub { font-size:var(--text-sm); color:var(--text-secondary); }
+
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-6); }
+
+.sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:45; }
+.sidebar-overlay--visible { display:block; animation:overlayFadeIn 0.2s ease-out; }
+
+/* ─── CTA Hero ─── */
+.cta-hero {
+  background:var(--bg-surface); border:1px solid var(--border-default);
+  border-radius:var(--radius-xl); padding:var(--space-10) var(--space-8);
+  text-align:center; box-shadow:var(--shadow-xs);
+  transition:all var(--duration-normal) var(--ease-m3);
+}
+.cta-hero__icon { font-size:48px; margin-bottom:var(--space-4); display:block; }
+.cta-hero__title { font-size:var(--text-xl); font-weight:700; color:var(--text-primary); margin-bottom:var(--space-2); font-family:var(--font-display); }
+.cta-hero__desc { font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-6); max-width:360px; margin-left:auto; margin-right:auto; line-height:1.6; }
+
+/* ─── Responsive ─── */
+@media(max-width:1024px){ .sidebar{transform:translateX(-100%)} .sidebar.sidebar--open{transform:translateX(0)} .sidebar-overlay.sidebar-overlay--visible{display:block} .main-area{margin-left:0} .header__hamburger{display:flex} }
+@media(max-width:768px){ .grid-2{grid-template-columns:1fr} .page-content{padding:var(--space-4)} .header{padding:0 var(--space-4)} .page-greeting__hello{font-size:var(--text-xl)} }
+@media(max-width:480px){ .page-content{padding:var(--space-3)} }

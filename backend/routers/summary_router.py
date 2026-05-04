@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/v1/meetings", tags=["summary"])
 class SummaryRequest(BaseModel):
     transcript: str
     meeting_id: Optional[int] = None  # Liên kết summary với meeting cụ thể (nếu có)
+    ai_provider: Optional[str] = "ollama"  # "ollama" hoặc "gemini"
 
 
 @router.post("/summarize")
@@ -31,8 +32,11 @@ def summarize_meeting(
         raise HTTPException(status_code=400, detail="Văn bản bóc băng quá ngắn hoặc trống rỗng.")
 
     try:
-        # Gọi trực tiếp qua service Ollama
-        result_payload = generate_meeting_summary(request.transcript)
+        # Gọi trực tiếp qua service LLM (có hỗ trợ Hybrid)
+        result_payload = generate_meeting_summary(
+            transcript_text=request.transcript,
+            provider=request.ai_provider
+        )
 
         # Lưu kết quả vào Database nếu có meeting_id
         saved_id = None
@@ -126,5 +130,6 @@ def get_meeting_summary(
             "decisions": summary.decisions or [],
             "action_items": summary.action_items or [],
             "created_at": str(summary.created_at)
-        }
+        },
+        "transcript": meeting.transcript.full_text if meeting.transcript else None
     }

@@ -1,5 +1,9 @@
 import os
+import time
 from faster_whisper import WhisperModel
+from google import genai
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # ==============================================================================
 # CẤU HÌNH STT — Ưu tiên độ chính xác cao nhất
@@ -93,3 +97,48 @@ def transcribe_audio_local(audio_path: str) -> str:
     print(f"[STT-LOCAL] Total characters transcribed: {len(final_text)}")
 
     return final_text
+
+def transcribe_audio_with_gemini(audio_path: str) -> str:
+    """
+    Bóc băng audio → văn bản sử dụng Gemini 1.5 Flash.
+    """
+    if not GEMINI_API_KEY:
+        raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
+        
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    
+    print(f"[STT-GEMINI] Uploading audio file: {audio_path}")
+    audio_file = client.files.upload(file=audio_path)
+    
+    print(f"[STT-GEMINI] Upload complete: {audio_file.name}. Waiting for processing...")
+    
+    # Wait for the file to be processed
+    while audio_file.state.name == "PROCESSING":
+        time.sleep(2)
+        audio_file = client.files.get(name=audio_file.name)
+        
+    if audio_file.state.name == "FAILED":
+        raise ValueError("Gemini failed to process the audio file.")
+        
+    print("[STT-GEMINI] File ready. Generating transcription...")
+    
+    prompt = "Hãy nghe và chép lại chính tả (transcript) chính xác từng từ trong đoạn ghi âm tiếng Việt này. Chỉ trả về phần chữ chép lại (transcript), không giải thích hay thêm bất kỳ bình luận nào khác."
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=[audio_file, prompt]
+        )
+        result_text = response.text.strip()
+    except Exception as e:
+        raise RuntimeError(f"Lỗi khi gọi Gemini: {str(e)}")
+    finally:
+        # Dọn dẹp file trên server của Google sau khi dùng xong
+        print(f"[STT-GEMINI] Deleting file from Google server...")
+        try:
+            client.files.delete(name=audio_file.name)
+        except Exception as e:
+            print(f"[STT-GEMINI] Warning: Error deleting file: {e}")
+            
+    print(f"[STT-GEMINI] Total characters transcribed: {len(result_text)}")
+    return result_text

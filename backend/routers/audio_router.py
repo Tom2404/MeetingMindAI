@@ -11,7 +11,7 @@ from .auth_router import get_optional_user
 
 # Import hàm xử lý file cục bộ
 from ..services.storage_service import process_local_audio, UPLOAD_DIR
-from ..services.stt_service import transcribe_audio_local
+from ..services.stt_service import transcribe_audio_local, transcribe_audio_with_gemini
 
 router = APIRouter(prefix="/api/v1/meetings", tags=["meetings"])
 
@@ -38,28 +38,17 @@ def run_stt_pipeline_task(meeting_id: int):
         file_disk_path = os.path.join(UPLOAD_DIR, filename_only)
         
         try:
-            # 1. Chạy AI Faster-Whisper
-            recognized_text = transcribe_audio_local(file_disk_path)
+            # 1. Chạy AI Gemini 1.5 Flash (Bóc băng)
+            # Bạn có thể đổi lại thành transcribe_audio_local(file_disk_path) nếu muốn dùng offline
+            recognized_text = transcribe_audio_with_gemini(file_disk_path)
             
             # 2. Lưu Transcript vào Database
             new_transcript = Transcript(meeting_id=meeting.id, full_text=recognized_text)
             db.add(new_transcript)
 
-            # 3. Tự động tóm tắt bằng LLM sau khi bóc băng xong (server-side auto-summarize)
-            try:
-                from ..services.llm_service import generate_meeting_summary
-                summary_result = generate_meeting_summary(recognized_text)
-                new_summary = Summary(
-                    meeting_id=meeting.id,
-                    summary_text=summary_result["summary_text"],
-                    decisions=summary_result["decisions"],
-                    action_items=summary_result["action_items"]
-                )
-                db.add(new_summary)
-                print(f"[Queue] LLM summarized and saved for meeting {meeting_id}")
-            except Exception as llm_err:
-                # LLM lỗi không nên ảnh hưởng tới trạng thái STT đã thành công
-                print(f"[Queue] LLM summarize failed (STT OK): {str(llm_err)}")
+            # 3. Chờ người dùng xác nhận tóm tắt từ UI thay vì tự động tóm tắt
+            # Đã bỏ phần auto-summarize theo yêu cầu của phương án 3
+
 
             meeting.status = MeetingStatus.COMPLETED
             db.commit()
