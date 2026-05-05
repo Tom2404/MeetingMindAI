@@ -114,8 +114,15 @@ def get_meeting_summary(
         raise HTTPException(status_code=404, detail="Không tìm thấy cuộc họp.")
 
     summary = db.query(Summary).filter(Summary.meeting_id == meeting_id).first()
-    if not summary:
-        raise HTTPException(status_code=404, detail="Cuộc họp này chưa có bản tóm tắt.")
+    
+    # Nếu chưa có summary thì trả về mảng rỗng cho các field AI, vẫn cho phép xem transcript
+    summary_data = {
+        "id": summary.id if summary else None,
+        "summary_text": summary.summary_text if summary else "Cuộc họp này chưa được tóm tắt.",
+        "decisions": summary.decisions if summary else [],
+        "action_items": summary.action_items if summary else [],
+        "created_at": str(summary.created_at) if summary else None
+    }
 
     return {
         "meeting": {
@@ -124,12 +131,6 @@ def get_meeting_summary(
             "status": meeting.status.value if meeting.status else None,
             "created_at": str(meeting.created_at)
         },
-        "summary": {
-            "id": summary.id,
-            "summary_text": summary.summary_text,
-            "decisions": summary.decisions or [],
-            "action_items": summary.action_items or [],
-            "created_at": str(summary.created_at)
-        },
+        "summary": summary_data,
         "transcript": meeting.transcript.full_text if meeting.transcript else None
     }

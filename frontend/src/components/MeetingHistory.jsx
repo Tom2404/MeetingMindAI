@@ -78,8 +78,8 @@ const MeetingHistory = ({ token, onViewSummary }) => {
           <div
             key={meeting.id}
             className="history__item"
-            onClick={() => meeting.has_summary && onViewSummary && onViewSummary(meeting.id)}
-            style={{ cursor: meeting.has_summary ? 'pointer' : 'default' }}
+            onClick={() => (meeting.has_summary || meeting.status === 'completed') && onViewSummary && onViewSummary(meeting.id)}
+            style={{ cursor: (meeting.has_summary || meeting.status === 'completed') ? 'pointer' : 'default' }}
           >
             <div style={{ flex:1 }}>
               <div className="history__item-title">{meeting.title || `Cuộc họp #${meeting.id}`}</div>
@@ -87,7 +87,7 @@ const MeetingHistory = ({ token, onViewSummary }) => {
             </div>
             <div className="history__item-right">
               {getStatusBadge(meeting.status, meeting.has_summary)}
-              {meeting.has_summary && (
+              {(meeting.has_summary || meeting.status === 'completed') && (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color:'var(--primary-400)' }}>
                   <path d="M8.59 16.59L13.17 12L8.59 7.41L10 6L16 12L10 18L8.59 16.59Z" fill="currentColor"/>
                 </svg>

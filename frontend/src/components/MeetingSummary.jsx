@@ -153,7 +153,12 @@ const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token, 
       if (data.transcript) {
         setEditableTranscript(data.transcript);
       }
-      setActiveTab('summary');
+      // Nếu chưa có ID summary (nghĩa là backend trả về placeholder), thì tự động mở tab văn bản
+      if (data.summary && data.summary.id) {
+        setActiveTab('summary');
+      } else {
+        setActiveTab('transcript');
+      }
     } catch (err) {
       if (err.message?.startsWith('server:')) {
         setErrorType('server'); setErrorMsg(`Không tải được (mã lỗi ${err.message.replace('server:', '')})`);
