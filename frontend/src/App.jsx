@@ -81,23 +81,23 @@ function App() {
         </div>
 
         <nav className="sidebar__nav">
-          <span className="sidebar__section-label">Chính</span>
+          <span className="sidebar__section-label">Công việc</span>
           {[
-            { key: 'new', icon: <IconMic />, label: 'Cuộc họp mới' },
-            { key: 'history', icon: <IconHistory />, label: 'Lịch sử' },
+            { key: 'new', label: 'Cuộc họp mới' },
+            { key: 'history', label: 'Lịch sử' },
           ].map(item => (
             <button key={item.key}
               className={`sidebar__item ${activePage === item.key ? 'sidebar__item--active' : ''}`}
               onClick={() => { setActivePage(item.key); if(item.key==='history') setViewingSummaryId(null); closeSidebar(); }}
             >
-              <span className="sidebar__item-icon">{item.icon}</span>{item.label}
+              {item.label}
             </button>
           ))}
 
           <span className="sidebar__section-label">Hệ thống</span>
           <button className={`sidebar__item ${activePage === 'status' ? 'sidebar__item--active' : ''}`}
             onClick={() => { setActivePage('status'); closeSidebar(); }}>
-            <span className="sidebar__item-icon"><IconBot /></span>Trạng thái AI
+            Trạng thái máy chủ
           </button>
         </nav>
 
@@ -106,9 +106,8 @@ function App() {
             <div className="sidebar__avatar">{currentUser.username?.charAt(0).toUpperCase()}</div>
             <div style={{ flex:1, overflow:'hidden' }}>
               <div className="sidebar__user-name">{displayName}</div>
-              <div className="sidebar__user-role">Nhấn để đăng xuất</div>
+              <div className="sidebar__user-role">Người dùng hệ thống</div>
             </div>
-            <IconLogout />
           </div>
         </div>
       </aside>
@@ -120,10 +119,11 @@ function App() {
             <button className="header__hamburger" onClick={() => setSidebarOpen(true)} aria-label="Menu"><IconMenu /></button>
             <div>
               <div className="header__title">{PAGES[activePage] || ''}</div>
-              {meetingInfo && activePage === 'new' && <div className="header__breadcrumb">📝 {meetingInfo.meetingName}</div>}
+              {meetingInfo && activePage === 'new' && <div className="header__breadcrumb">Bản ghi: {meetingInfo.meetingName}</div>}
             </div>
           </div>
           <div className="header__right">
+            <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={handleLogout}>Đăng xuất</button>
             <button className="theme-toggle" onClick={toggleTheme} aria-label="Đổi giao diện">{isDark ? '☀️' : '🌙'}</button>
           </div>
         </header>
@@ -135,16 +135,15 @@ function App() {
               {!meetingInfo && !viewingSummaryId && (
                 <div className="animate-fade-in">
                   <div className="page-greeting">
-                    <div className="page-greeting__hello">{getGreeting()}, {displayName}! 👋</div>
-                    <div className="page-greeting__sub">Bắt đầu cuộc họp mới hoặc xem lại kết quả cũ.</div>
+                    <h1 className="page-greeting__hello">{getGreeting()}, {displayName}</h1>
+                    <p className="page-greeting__sub">Bạn muốn bắt đầu phân tích cuộc họp nào hôm nay?</p>
                   </div>
-                  <AIStatusBar />
+                  
                   <div className="cta-hero" style={{ marginTop:'var(--space-6)' }}>
-                    <span className="cta-hero__icon">🎙️</span>
-                    <div className="cta-hero__title">Bắt đầu cuộc họp mới</div>
-                    <p className="cta-hero__desc">Tải file ghi âm hoặc ghi âm trực tiếp — AI sẽ tự động tóm tắt, trích xuất quyết định và nhiệm vụ cho bạn.</p>
+                    <div className="cta-hero__title">Tạo phiên làm việc mới</div>
+                    <p className="cta-hero__desc">Hệ thống hỗ trợ tải file âm thanh có sẵn hoặc ghi âm trực tiếp để bóc băng và tóm tắt tự động.</p>
                     <button className="mm-btn mm-btn--lg mm-btn--primary" onClick={() => setShowSetup(true)}>
-                      ✨ Tạo cuộc họp mới
+                      Bắt đầu cuộc họp
                     </button>
                   </div>
                 </div>
@@ -157,20 +156,19 @@ function App() {
                       <div>
                         <div style={{ fontWeight:700, fontSize:'var(--text-lg)', color:'var(--text-primary)', marginBottom:4, fontFamily:'var(--font-display)' }}>{meetingInfo.meetingName}</div>
                         <div style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)', display:'flex', gap:'var(--space-4)', flexWrap:'wrap' }}>
-                          {meetingInfo.host && <span>👤 {meetingInfo.host}</span>}
-                          {meetingInfo.participants && <span>👥 {meetingInfo.participants}</span>}
-                          <span>📅 {new Date().toLocaleDateString('vi-VN')}</span>
+                          {meetingInfo.host && <span>Chủ trì: {meetingInfo.host}</span>}
+                          {meetingInfo.participants && <span>Tham gia: {meetingInfo.participants}</span>}
+                          <span>Ngày: {new Date().toLocaleDateString('vi-VN')}</span>
                         </div>
                       </div>
-                      <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={handleBackToSetup}>← Quay lại</button>
+                      <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleBackToSetup}>Hủy phiên</button>
                     </div>
                   </div>
 
                   {activeMethod === 'upload' && (
                     <div className="mm-card">
                       <div className="mm-card__header">
-                        <div className="mm-card__icon mm-card__icon--primary">📁</div>
-                        <div className="mm-card__title">Tải lên bản ghi âm</div>
+                        <div className="mm-card__title">Tải lên tệp âm thanh</div>
                       </div>
                       <AudioUpload onCompleteData={handleProcessComplete} token={token} />
                     </div>
@@ -179,8 +177,7 @@ function App() {
                   {activeMethod === 'record' && (
                     <div className="mm-card">
                       <div className="mm-card__header">
-                        <div className="mm-card__icon mm-card__icon--danger">🎙️</div>
-                        <div className="mm-card__title">Ghi âm trực tuyến</div>
+                        <div className="mm-card__title">Ghi âm trực tiếp</div>
                       </div>
                       <AudioRecorder meetingId={wsMeetingId} onCompleteData={handleProcessComplete} />
                     </div>
@@ -188,8 +185,7 @@ function App() {
 
                   <div className="mm-card" style={{ marginTop:'var(--space-5)' }}>
                     <div className="mm-card__header">
-                      <div className="mm-card__icon mm-card__icon--success">📊</div>
-                      <div className="mm-card__title">Kết quả AI Tóm tắt</div>
+                      <div className="mm-card__title">Phân tích và Tóm tắt AI</div>
                     </div>
                     <MeetingSummary meetingId={currentMeetingId || wsMeetingId} activeTranscript={currentTranscript} viewingSummaryId={viewingSummaryId} token={token} meetingInfo={meetingInfo} />
                   </div>
@@ -200,8 +196,8 @@ function App() {
                 <div className="animate-fade-in">
                   <div className="mm-card">
                     <div className="mm-card__header">
-                      <div className="mm-card__icon mm-card__icon--success">📊</div>
-                      <div className="mm-card__title">Bản tóm tắt đã lưu</div>
+                      <div className="mm-card__title">Chi tiết bản tóm tắt</div>
+                      <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => setViewingSummaryId(null)}>Đóng</button>
                     </div>
                     <MeetingSummary meetingId={viewingSummaryId} activeTranscript={currentTranscript} viewingSummaryId={viewingSummaryId} token={token} />
                   </div>
@@ -214,8 +210,7 @@ function App() {
             <div className="animate-fade-in">
               <div className="mm-card">
                 <div className="mm-card__header">
-                  <div className="mm-card__icon mm-card__icon--primary"><IconHistory /></div>
-                  <div className="mm-card__title">Lịch sử các cuộc họp</div>
+                  <div className="mm-card__title">Lịch sử cuộc họp cá nhân</div>
                 </div>
                 <MeetingHistory token={token} onViewSummary={handleViewSummary} />
               </div>
@@ -225,8 +220,8 @@ function App() {
           {activePage === 'status' && (
             <div className="animate-fade-in">
               <div className="page-greeting">
-                <div className="page-greeting__hello">🤖 Trạng thái Hệ thống AI</div>
-                <div className="page-greeting__sub">Kiểm tra Ollama LLM và Faster-Whisper STT</div>
+                <div className="page-greeting__hello">Trạng thái Hệ thống AI</div>
+                <div className="page-greeting__sub">Kiểm tra kết nối mô hình LLM và dịch vụ bóc băng</div>
               </div>
               <AIStatusBar />
             </div>

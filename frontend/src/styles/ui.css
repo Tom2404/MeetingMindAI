@@ -54,34 +54,39 @@
 .mm-textarea { resize:vertical; min-height:80px; }
 .mm-input-error { font-size:var(--text-xs); color:var(--google-red); margin-top:2px; }
 
-/* ─── Card — Google Container ─── */
+/* ─── Card — Professional Container ─── */
 .mm-card {
-  background:var(--bg-surface); border:1px solid var(--border-default);
-  border-radius:var(--radius-lg); padding:var(--space-6);
-  box-shadow:var(--shadow-xs); transition:all var(--duration-normal) var(--ease-m3);
+  background: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: var(--radius-lg); padding: var(--space-8);
+  box-shadow: 0 4px 20px rgba(0, 90, 240, 0.03);
+  transition: all var(--duration-normal) var(--ease-m3);
 }
-.mm-card--hoverable:hover { border-color:var(--google-blue-light); box-shadow:var(--shadow-card-hover); transform:translateY(-2px); }
-.mm-card--elevated { box-shadow:var(--shadow-sm); border-color:transparent; }
+.mm-card--hoverable:hover { border-color: var(--google-blue-light); box-shadow: 0 10px 30px rgba(0, 90, 240, 0.08); transform: translateY(-2px); }
+.mm-card--elevated { box-shadow: var(--shadow-sm); border-color: transparent; }
 .mm-card--accent::before {
-  content:''; position:absolute; top:0; left:0; right:0; height:3px;
-  background:var(--google-blue); border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  content:''; position:absolute; top:0; left:0; right:0; height:4px;
+  background: var(--google-blue); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 .mm-card { position:relative; overflow:hidden; }
 
-.mm-card__header { display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-5); padding-bottom:var(--space-4); border-bottom:1px solid var(--border-default); }
-.mm-card__icon {
-  width:40px; height:40px; border-radius:var(--radius-md); display:flex;
-  align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+.mm-card__header { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between;
+  margin-bottom: var(--space-6); 
+  padding-bottom: var(--space-4); 
+  border-bottom: 1px solid #f1f5f9; 
 }
-.mm-card__icon--primary { background:var(--google-blue-bg); color:var(--google-blue); }
-.mm-card__icon--success { background:var(--google-green-bg); color:var(--google-green); }
-.mm-card__icon--danger  { background:var(--google-red-bg); color:var(--google-red); }
-.mm-card__icon--warning { background:var(--google-yellow-bg); color:var(--google-yellow); }
-[data-theme="dark"] .mm-card__icon--primary { background:var(--primary-50); }
-[data-theme="dark"] .mm-card__icon--success { background:var(--success-50); }
-[data-theme="dark"] .mm-card__icon--danger  { background:var(--danger-50); }
-[data-theme="dark"] .mm-card__icon--warning { background:var(--warning-50); }
-.mm-card__title { font-size:var(--text-base); font-weight:600; color:var(--text-primary); }
+.mm-card__icon { display: none; } /* Hide icons in card headers */
+
+.mm-card__title { 
+  font-size: var(--text-lg); 
+  font-weight: 700; 
+  color: #1a202c; 
+  font-family: var(--font-display);
+}
+
 
 /* ─── Badge — Google Pill ─── */
 .mm-badge { display:inline-flex; align-items:center; gap:4px; padding:4px 12px; border-radius:var(--radius-full); font-size:11px; font-weight:600; white-space:nowrap; }
