@@ -40,7 +40,7 @@ def run_stt_pipeline_task(meeting_id: int):
         try:
             # 1. Chạy AI Gemini 1.5 Flash (Bóc băng)
             # Bạn có thể đổi lại thành transcribe_audio_local(file_disk_path) nếu muốn dùng offline
-            recognized_text = transcribe_audio_with_gemini(file_disk_path)
+            recognized_text = transcribe_audio_local(file_disk_path)
             
             # 2. Lưu Transcript vào Database
             new_transcript = Transcript(meeting_id=meeting.id, full_text=recognized_text)
@@ -55,7 +55,7 @@ def run_stt_pipeline_task(meeting_id: int):
             print(f"[Queue] STT completed for meeting {meeting_id}")
             
         except Exception as e:
-            print(f"[Queue] STT Error: {str(e)}")
+            print(f"[Queue] STT Error: {repr(e)}")
             meeting.status = MeetingStatus.FAILED
             db.commit()
             

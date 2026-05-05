@@ -2,6 +2,15 @@ import os
 import time
 from faster_whisper import WhisperModel
 from google import genai
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Tìm đường dẫn đến thư mục backend (thư mục chứa file này là services/, cha của nó là backend/)
+backend_dir = Path(__file__).resolve().parent.parent
+env_path = backend_dir / ".env"
+
+# Load file .env chính xác theo đường dẫn tuyệt đối
+load_dotenv(dotenv_path=env_path)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
@@ -14,7 +23,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 #   - large-v2:~3GB  — Rất tốt
 #   - large-v3:~3GB  — TỐT NHẤT, chính xác nhất cho tiếng Việt (khuyến nghị)
 # Model size: 'base' là model nhanh nhất, phù hợp cho máy cấu hình yếu
-MODEL_SIZE = "base"
+MODEL_SIZE = "tiny"
 
 # Để None để AI tự động nhận diện ngôn ngữ (Tiếng Việt hoặc Tiếng Anh)
 LANGUAGE = None
@@ -34,9 +43,20 @@ def get_model():
     if _model is None:
         print(f"[STT-LOCAL] Loading Faster Whisper model '{MODEL_SIZE}'...")
         print(f"[STT-LOCAL] Warning: Model '{MODEL_SIZE}' needs ~3GB RAM. Please wait for first load...")
-        # int8: lượng tử hóa 8-bit → giảm RAM 50%, tốc độ nhanh hơn trên CPU
-        # Nếu có GPU NVIDIA CUDA: đổi device="cuda", compute_type="float16" để nhanh hơn 10-15x
-        _model = WhisperModel(MODEL_SIZE, device="cpu", compute_type="int8")
+        # Tự động phát hiện GPU (NVIDIA CUDA) để tăng tốc 10-15 lần
+        device = "cuda" if os.getenv("USE_GPU", "false").lower() == "true" else "cpu"
+        # Nếu chạy CPU: dùng int8 để nhanh hơn. Nếu GPU: dùng float16.
+        compute_type = "float16" if device == "cuda" else "int8"
+        
+        print(f"[STT-LOCAL] Device: {device.upper()}, Compute: {compute_type}")
+        
+        _model = WhisperModel(
+            MODEL_SIZE, 
+            device=device, 
+            compute_type=compute_type,
+            cpu_threads=4,    # Số luồng CPU sử dụng
+            num_workers=2     # Số lượng worker xử lý song song
+        )
         print(f"[STT-LOCAL] Success: Model '{MODEL_SIZE}' is ready.")
     return _model
 
@@ -62,11 +82,11 @@ def transcribe_audio_local(audio_path: str) -> str:
 
     segments, info = model.transcribe(
         audio_path,
-        language=LANGUAGE,
+        language=LANGUAGE,            # Để None để tự động nhận diện Anh/Việt
         initial_prompt=INITIAL_PROMPT,
-        beam_size=5,                  # Giảm xuống 5 để tăng tốc độ trên máy yếu
-        best_of=5,                     # Lấy kết quả tốt nhất trong 5 lần thử (cho sampling)
-        temperature=0.0,               # Dùng decoding xác định (không random) → ổn định nhất
+        beam_size=2,                  # Tăng lên 2 để tránh lỗi lặp từ "Tên Tên"
+        best_of=1,
+        temperature=0.0,
         vad_filter=True,               # Lọc khoảng im lặng/tiếng ồn nền
         vad_parameters=dict(
             min_silence_duration_ms=300,   # Khoảng im lặng tối thiểu để cắt segment
@@ -103,7 +123,7 @@ def transcribe_audio_with_gemini(audio_path: str) -> str:
     Bóc băng audio → văn bản sử dụng Gemini 1.5 Flash.
     """
     if not GEMINI_API_KEY:
-        raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
+        raise RuntimeError("GEMINI_API_KEY not configured in the system.")
         
     client = genai.Client(api_key=GEMINI_API_KEY)
     
@@ -126,19 +146,19 @@ def transcribe_audio_with_gemini(audio_path: str) -> str:
     
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-1.5-flash-latest",
             contents=[audio_file, prompt]
         )
         result_text = response.text.strip()
     except Exception as e:
-        raise RuntimeError(f"Lỗi khi gọi Gemini: {str(e)}")
+        raise RuntimeError(f"Error calling Gemini: {str(e)}")
     finally:
         # Dọn dẹp file trên server của Google sau khi dùng xong
         print(f"[STT-GEMINI] Deleting file from Google server...")
         try:
             client.files.delete(name=audio_file.name)
         except Exception as e:
-            print(f"[STT-GEMINI] Warning: Error deleting file: {e}")
+            print(f"[STT-GEMINI] Warning: Error deleting file: {repr(e)}")
             
     print(f"[STT-GEMINI] Total characters transcribed: {len(result_text)}")
     return result_text
