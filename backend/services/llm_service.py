@@ -161,15 +161,17 @@ def _generate_with_gemini(transcript_text: str, max_retries: int) -> dict:
     if not GEMINI_API_KEY:
         raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
 
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
-    user_prompt = f"Meeting transcript:\n{transcript_text}"
-
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # Gộp System Prompt và User Prompt thành một nội dung duy nhất cho bản v1
+    full_prompt = f"{SYSTEM_PROMPT}\n\nMeeting transcript:\n{transcript_text}"
+    
     payload = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"parts": [{"text": user_prompt}]}],
+        "contents": [{
+            "parts": [{"text": full_prompt}]
+        }],
         "generationConfig": {
-            "responseMimeType": "application/json",
-            "temperature": 0.1
+            "temperature": 0.7,
+            "maxOutputTokens": 2048
         }
     }
 
