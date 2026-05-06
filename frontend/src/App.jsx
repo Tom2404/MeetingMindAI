@@ -23,6 +23,7 @@ function App() {
   const [token, setToken] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [currentTranscript, setCurrentTranscript] = useState("");
+  const [currentChunks, setCurrentChunks] = useState([]);
   const [currentMeetingId, setCurrentMeetingId] = useState(null);
   const [activePage, setActivePage] = useState('new');
   const [viewingSummaryId, setViewingSummaryId] = useState(null);
@@ -46,7 +47,11 @@ function App() {
 
   const handleLoginSuccess = (user, t) => { setCurrentUser(user); setToken(t); };
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); setCurrentUser(null); setToken(null); setCurrentTranscript(""); setCurrentMeetingId(null); setViewingSummaryId(null); setMeetingInfo(null); setActiveMethod(null); };
-  const handleProcessComplete = (transcript, meetingId) => { setCurrentTranscript(transcript); if (meetingId) setCurrentMeetingId(meetingId); };
+  const handleProcessComplete = (transcript, meetingId, chunks = []) => { 
+    setCurrentTranscript(transcript); 
+    setCurrentChunks(chunks);
+    if (meetingId) setCurrentMeetingId(meetingId); 
+  };
   const handleViewSummary = (meetingId) => { setViewingSummaryId(meetingId); setActivePage('new'); };
   const handleSetupConfirm = (info) => { setMeetingInfo(info); setActiveMethod(info.method); setShowSetup(false); setCurrentTranscript(""); setCurrentMeetingId(null); setViewingSummaryId(null); setActivePage('new'); };
   const handleBackToSetup = () => { setMeetingInfo(null); setActiveMethod(null); setCurrentTranscript(""); };
@@ -187,7 +192,14 @@ function App() {
                     <div className="mm-card__header">
                       <div className="mm-card__title">Phân tích và Tóm tắt AI</div>
                     </div>
-                    <MeetingSummary meetingId={currentMeetingId || wsMeetingId} activeTranscript={currentTranscript} viewingSummaryId={viewingSummaryId} token={token} meetingInfo={meetingInfo} />
+                    <MeetingSummary 
+                      meetingId={currentMeetingId || wsMeetingId} 
+                      activeTranscript={currentTranscript} 
+                      activeChunks={currentChunks}
+                      viewingSummaryId={viewingSummaryId} 
+                      token={token} 
+                      meetingInfo={meetingInfo} 
+                    />
                   </div>
                 </div>
               )}

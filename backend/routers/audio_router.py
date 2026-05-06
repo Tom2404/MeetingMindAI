@@ -38,12 +38,18 @@ def run_stt_pipeline_task(meeting_id: int):
         file_disk_path = os.path.join(UPLOAD_DIR, filename_only)
         
         try:
-            # 1. Chạy AI Gemini 1.5 Flash (Bóc băng)
-            # Bạn có thể đổi lại thành transcribe_audio_local(file_disk_path) nếu muốn dùng offline
-            recognized_text = transcribe_audio_local(file_disk_path)
+            # 1. Chạy AI Gemini 1.5 Flash (Bóc băng + Phân biệt người nói)
+            # Sử dụng Gemini làm mặc định để có tốc độ nhanh và tính năng Speaker Diarization
+            stt_result = transcribe_audio_with_gemini(file_disk_path)
+            recognized_text = stt_result["full_text"]
+            chunks = stt_result["chunks"]
             
-            # 2. Lưu Transcript vào Database
-            new_transcript = Transcript(meeting_id=meeting.id, full_text=recognized_text)
+            # 2. Lưu Transcript vào Database (bao gồm cả full_text và chunks)
+            new_transcript = Transcript(
+                meeting_id=meeting.id, 
+                full_text=recognized_text,
+                chunks=chunks
+            )
             db.add(new_transcript)
 
             # 3. Chờ người dùng xác nhận tóm tắt từ UI thay vì tự động tóm tắt
@@ -91,6 +97,7 @@ def get_transcript(meeting_id: int, db: Session = Depends(get_db)):
              return {
                  "status": "completed", 
                  "text": transcript.full_text,
+                 "chunks": transcript.chunks or [],
                  "summary": summary_data
              }
              

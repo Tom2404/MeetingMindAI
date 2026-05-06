@@ -11,7 +11,7 @@ import os
 # ==============================================================================
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") # Thêm API Key vào .env hoặc biến môi trường
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # ==============================================================================
 # SYSTEM PROMPT — Phase 1: Structured Decisions + Priority + Key Topics
@@ -161,7 +161,7 @@ def _generate_with_gemini(transcript_text: str, max_retries: int) -> dict:
     if not GEMINI_API_KEY:
         raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
     # Gộp System Prompt và User Prompt thành một nội dung duy nhất cho bản v1
     full_prompt = f"{SYSTEM_PROMPT}\n\nMeeting transcript:\n{transcript_text}"
     
@@ -199,13 +199,13 @@ def _generate_with_gemini(transcript_text: str, max_retries: int) -> dict:
                 "decisions":     _normalize_decisions(parsed.get("decisions", [])),
                 "action_items":  _normalize_action_items(parsed.get("action_items", [])),
                 "processing_metadata": {
-                    "model_used":        "gemini-1.5-flash",
+                    "model_used":        "gemini-2.5-flash",
                     "transcript_length": len(transcript_text),
                     "timestamp":         datetime.now(timezone.utc).isoformat(),
                     "attempt":           attempt + 1,
                 }
             }
-            print(f"[LLM] ✅ Gemini Success")
+            print(f"[LLM] [OK] Gemini Success")
             return result
 
         except json.JSONDecodeError as e:
@@ -270,7 +270,7 @@ def _generate_with_ollama(transcript_text: str, max_retries: int) -> dict:
                 }
             }
 
-            print(f"[LLM] ✅ Success — "
+            print(f"[LLM] [OK] Success — "
                   f"{len(result['decisions'])} decisions, "
                   f"{len(result['action_items'])} action items, "
                   f"{len(result['key_topics'])} key topics.")

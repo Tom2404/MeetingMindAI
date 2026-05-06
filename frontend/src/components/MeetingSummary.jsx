@@ -44,66 +44,119 @@ const KeyTopicTags = ({ topics = [] }) => {
   );
 };
 
-const DecisionCard = ({ decision, index }) => {
-  // Hỗ trợ cả cấu trúc cũ (string) và mới (object)
-  if (typeof decision === 'string') {
-    return (
-      <div style={{
-        display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start',
-        padding: 'var(--space-3)', borderRadius: 'var(--radius-md)',
-        background: 'var(--bg-surface-hover)', border: '1px solid var(--border-default)',
-        marginBottom: 'var(--space-2)',
-      }}>
-        <span style={{ color: 'var(--google-green)', fontWeight: 700, flexShrink: 0 }}>✓</span>
-        <strong style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{decision}</strong>
-      </div>
-    );
-  }
+const SPEAKER_COLORS = [
+  { main: '#1a73e8', bg: 'rgba(26, 115, 232, 0.06)', border: 'rgba(26, 115, 232, 0.15)' }, // Blue
+  { main: '#ea4335', bg: 'rgba(234, 67, 53, 0.06)', border: 'rgba(234, 67, 53, 0.15)' }, // Red
+  { main: '#fbbc04', bg: 'rgba(251, 188, 4, 0.08)', border: 'rgba(251, 188, 4, 0.2)' },  // Yellow
+  { main: '#34a853', bg: 'rgba(52, 168, 83, 0.06)', border: 'rgba(52, 168, 83, 0.15)' }, // Green
+  { main: '#a142f4', bg: 'rgba(161, 66, 244, 0.06)', border: 'rgba(161, 66, 244, 0.15)' }, // Purple
+  { main: '#00acc1', bg: 'rgba(0, 172, 193, 0.06)', border: 'rgba(0, 172, 193, 0.15)' }, // Cyan
+];
 
-  const { subject, action, outcome } = decision;
+const getSpeakerStyle = (speakerName, allSpeakers) => {
+  const index = allSpeakers.indexOf(speakerName);
+  return SPEAKER_COLORS[index % SPEAKER_COLORS.length] || SPEAKER_COLORS[0];
+};
+
+const TranscriptBubble = ({ chunk, index, allSpeakers, onSpeakerNameChange }) => {
+  const speakerId = chunk.speaker || "Người nói 1";
+  const style = getSpeakerStyle(speakerId, allSpeakers);
+  const isLeft = allSpeakers.indexOf(speakerId) % 2 === 0;
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempName, setTempName] = useState(speakerId);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (tempName.trim() !== speakerId) {
+      onSpeakerNameChange(speakerId, tempName.trim());
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleBlur();
+    if (e.key === 'Escape') {
+      setTempName(speakerId);
+      setIsEditing(false);
+    }
+  };
+
+  const bubbleStyles = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    maxWidth: '85%',
+    alignSelf: isLeft ? 'flex-start' : 'flex-end',
+    marginBottom: 'var(--space-4)',
+  };
+
+  const contentStyles = {
+    padding: 'var(--space-3) var(--space-4)',
+    borderRadius: 'var(--radius-lg)',
+    fontSize: 'var(--text-md)',
+    lineHeight: 1.6,
+    background: style.bg,
+    border: `1px solid ${style.border}`,
+    color: 'var(--text-primary)',
+    boxShadow: 'var(--shadow-sm)',
+    borderTopLeftRadius: isLeft ? '2px' : 'var(--radius-lg)',
+    borderTopRightRadius: isLeft ? 'var(--radius-lg)' : '2px',
+  };
+
+  const speakerLabelStyles = {
+    fontSize: 'var(--text-xs)',
+    fontWeight: 700,
+    color: style.main,
+    marginBottom: '2px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    flexDirection: isLeft ? 'row' : 'row-reverse',
+  };
+
   return (
-    <div style={{
-      borderRadius: 'var(--radius-lg)',
-      border: '1px solid rgba(52,168,83,0.25)',
-      background: 'var(--bg-surface)',
-      overflow: 'hidden',
-      marginBottom: 'var(--space-3)',
-      transition: 'box-shadow var(--duration-fast)',
-    }}
-    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(52,168,83,0.12)'}
-    onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
-    >
-      {/* Header */}
-      <div style={{
-        background: 'rgba(52,168,83,0.08)', padding: 'var(--space-2) var(--space-4)',
-        borderBottom: '1px solid rgba(52,168,83,0.15)',
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-      }}>
-        <span style={{ color: 'var(--google-green)', fontWeight: 700 }}>✅</span>
-        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--google-green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Quyết định #{index + 1}
-        </span>
-      </div>
-      {/* Body */}
-      <div style={{ padding: 'var(--space-3) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {subject && (
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-tertiary)', minWidth: 64 }}>👤 Chủ thể</span>
-            <span style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>{subject}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+      <div style={bubbleStyles}>
+        <div style={speakerLabelStyles}>
+          <div style={{ 
+            width: 28, height: 28, borderRadius: '50%', 
+            background: style.main,
+            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 800, flexShrink: 0,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            {speakerId.charAt(0).toUpperCase()}
           </div>
-        )}
-        {action && (
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-tertiary)', minWidth: 64 }}>🎯 Hành động</span>
-            <span style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>{action}</span>
-          </div>
-        )}
-        {outcome && (
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-tertiary)', minWidth: 64 }}>📌 Kết quả</span>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontStyle: 'italic' }}>{outcome}</span>
-          </div>
-        )}
+          
+          {isEditing ? (
+            <input 
+              autoFocus
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={{
+                background: 'var(--bg-body)', border: `1px solid ${style.main}`,
+                color: 'var(--text-primary)', fontSize: 'var(--text-xs)',
+                fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
+                outline: 'none', width: '120px'
+              }}
+            />
+          ) : (
+            <span 
+              onClick={() => setIsEditing(true)}
+              style={{ cursor: 'pointer', borderBottom: '1px dashed transparent' }}
+              onMouseEnter={e => e.target.style.borderBottomColor = style.main}
+              onMouseLeave={e => e.target.style.borderBottomColor = 'transparent'}
+              title="Click để đổi tên"
+            >
+              {speakerId}
+            </span>
+          )}
+        </div>
+        <div style={contentStyles}>
+          {chunk.text}
+        </div>
       </div>
     </div>
   );
@@ -111,15 +164,16 @@ const DecisionCard = ({ decision, index }) => {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token, meetingInfo }) => {
+const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSummaryId, token, meetingInfo }) => {
   const [summaryData, setSummaryData]       = useState(null);
   const [isLoading, setIsLoading]           = useState(false);
   const [errorMsg, setErrorMsg]             = useState('');
   const [errorType, setErrorType]           = useState('');
   const [loadingSeconds, setLoadingSeconds] = useState(0);
   const [isSaved, setIsSaved]               = useState(false);
-  const [aiProvider, setAiProvider]         = useState('ollama'); // 'ollama' or 'gemini'
+  const [aiProvider, setAiProvider]         = useState('gemini'); // Default to gemini for diarization
   const [editableTranscript, setEditableTranscript] = useState('');
+  const [transcriptChunks, setTranscriptChunks]   = useState([]);
   const [activeTab, setActiveTab]           = useState('summary'); // 'transcript' or 'summary'
   const lastProcessedTranscript             = useRef(null);
 
@@ -128,11 +182,14 @@ const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token, 
   useEffect(() => {
     if (activeTranscript) {
       setEditableTranscript(activeTranscript);
+      if (activeChunks) {
+        setTranscriptChunks(activeChunks);
+      }
       if (!summaryData) {
         setActiveTab('transcript');
       }
     }
-  }, [activeTranscript]);
+  }, [activeTranscript, activeChunks]);
 
   useEffect(() => {
     let interval = null;
@@ -152,6 +209,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token, 
       setSummaryData(data.summary);
       if (data.transcript) {
         setEditableTranscript(data.transcript);
+        if (data.chunks && data.chunks.length > 0) {
+          setTranscriptChunks(data.chunks);
+        } else {
+          setTranscriptChunks([]);
+        }
       }
       // Nếu chưa có ID summary (nghĩa là backend trả về placeholder), thì tự động mở tab văn bản
       if (data.summary && data.summary.id) {
@@ -168,6 +230,22 @@ const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token, 
         setErrorType('server'); setErrorMsg(err.message || 'Không thể tải bản tóm tắt.');
       }
     } finally { setIsLoading(false); }
+  };
+
+  const handleSpeakerNameChange = (oldName, newName) => {
+    if (!newName || oldName === newName) return;
+    
+    // 1. Cập nhật danh sách chunks (đổi tên cho tất cả các đoạn của người đó)
+    const updatedChunks = transcriptChunks.map(chunk => 
+      chunk.speaker === oldName ? { ...chunk, speaker: newName } : chunk
+    );
+    setTranscriptChunks(updatedChunks);
+    
+    // 2. Cập nhật lại chuỗi văn bản thô để LLM hiểu đúng ngữ cảnh tên mới
+    const updatedFullText = updatedChunks.map(c => `[${c.speaker}]: ${c.text}`).join('\n');
+    setEditableTranscript(updatedFullText);
+    
+    console.log(`[UI] Đã đổi tên người nói: ${oldName} -> ${newName}`);
   };
 
   const handleStartSummarize = async (overrideProvider) => {
@@ -358,24 +436,46 @@ const MeetingSummary = ({ meetingId, activeTranscript, viewingSummaryId, token, 
       {activeTab === 'transcript' && editableTranscript && !isLoading && !errorMsg && (
         <div className="transcript-section animate-fade-in">
           <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none' }}>
-            <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Bạn có thể kiểm tra và chỉnh sửa nội dung trước khi tóm tắt để có kết quả chính xác nhất.</span>
-              <span style={{ fontWeight: 600 }}>{editableTranscript.length} ký tự</span>
+            <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên và chỉnh sửa nội dung văn bản.</span>
+              <span style={{ fontWeight: 600, background: 'var(--bg-surface-hover)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
+                {editableTranscript.length} ký tự
+              </span>
             </div>
-            <textarea
-              value={editableTranscript}
-              onChange={(e) => setEditableTranscript(e.target.value)}
-              style={{
-                width: '100%', minHeight: '300px', padding: 'var(--space-3)',
-                borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)',
-                background: 'var(--bg-body)', color: 'var(--text-primary)',
-                fontFamily: 'inherit', fontSize: 'var(--text-md)', lineHeight: 1.6,
-                resize: 'vertical', outline: 'none'
-              }}
-              placeholder="Nội dung bóc băng sẽ hiển thị ở đây..."
-              onFocus={(e) => e.target.style.borderColor = 'var(--primary-400)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border-default)'}
-            />
+            {transcriptChunks.length > 0 ? (
+              <div className="transcript-bubbles" style={{ 
+                display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', 
+                maxHeight: '600px', overflowY: 'auto', padding: 'var(--space-4)',
+                background: 'var(--bg-body)', borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-default)',
+                scrollBehavior: 'smooth'
+              }}>
+                {transcriptChunks.map((chunk, i) => (
+                  <TranscriptBubble 
+                    key={i} 
+                    chunk={chunk} 
+                    index={i} 
+                    allSpeakers={[...new Set(transcriptChunks.map(c => c.speaker))]}
+                    onSpeakerNameChange={handleSpeakerNameChange}
+                  />
+                ))}
+              </div>
+            ) : (
+              <textarea
+                value={editableTranscript}
+                onChange={(e) => setEditableTranscript(e.target.value)}
+                style={{
+                  width: '100%', minHeight: '300px', padding: 'var(--space-3)',
+                  borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)',
+                  background: 'var(--bg-body)', color: 'var(--text-primary)',
+                  fontFamily: 'inherit', fontSize: 'var(--text-md)', lineHeight: 1.6,
+                  resize: 'vertical', outline: 'none'
+                }}
+                placeholder="Nội dung bóc băng sẽ hiển thị ở đây..."
+                onFocus={(e) => e.target.style.borderColor = 'var(--primary-400)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--border-default)'}
+              />
+            )}
           </div>
           
           {/* Hybrid Provider Selector & Summarize Button */}

@@ -1,5 +1,6 @@
 import os
 import time
+import re
 from faster_whisper import WhisperModel
 from google import genai
 from pathlib import Path
@@ -116,11 +117,16 @@ def transcribe_audio_local(audio_path: str) -> str:
     final_text = " ".join(valid_segments)
     print(f"[STT-LOCAL] Total characters transcribed: {len(final_text)}")
 
-    return final_text
+    # Trả về định dạng dict đồng nhất
+    return {
+        "full_text": final_text,
+        "chunks": [{"speaker": "Unknown", "text": t, "start": None, "end": None} for t in valid_segments]
+    }
 
-def transcribe_audio_with_gemini(audio_path: str) -> str:
+def transcribe_audio_with_gemini(audio_path: str) -> dict:
     """
     Bóc băng audio → văn bản sử dụng Gemini 1.5 Flash.
+    Hỗ trợ phân biệt người nói (Speaker Diarization) qua prompt.
     """
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY not configured in the system.")
@@ -140,13 +146,22 @@ def transcribe_audio_with_gemini(audio_path: str) -> str:
     if audio_file.state.name == "FAILED":
         raise ValueError("Gemini failed to process the audio file.")
         
-    print("[STT-GEMINI] File ready. Generating transcription...")
+    print("[STT-GEMINI] File ready. Generating transcription with Speaker Diarization...")
     
-    prompt = "Hãy nghe và chép lại chính tả (transcript) chính xác từng từ trong đoạn ghi âm tiếng Việt này. Chỉ trả về phần chữ chép lại (transcript), không giải thích hay thêm bất kỳ bình luận nào khác."
+    prompt = """Hãy nghe đoạn ghi âm này và bóc băng hội thoại chính xác từng từ  
+    NHIỆM VỤ QUAN TRỌNG: 
+    1. Hãy phân biệt các người nói khác nhau.
+    2. Gắn nhãn họ là [Speaker 1], [Speaker 2], [Speaker 3], v.v. dựa trên giọng nói.
+    3. Trả về nội dung theo định dạng chính xác như sau:
+       [Speaker 1]: Nội dung người thứ nhất nói...
+       [Speaker 2]: Nội dung người thứ hai nói...
+       [Speaker 1]: Nội dung người thứ nhất nói tiếp...
+    
+    Chỉ trả về phần hội thoại đã được gán nhãn, không thêm lời chào, giải thích hay bình luận nào khác."""
     
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash-latest",
+            model="gemini-2.5-flash",
             contents=[audio_file, prompt]
         )
         result_text = response.text.strip()
@@ -160,5 +175,29 @@ def transcribe_audio_with_gemini(audio_path: str) -> str:
         except Exception as e:
             print(f"[STT-GEMINI] Warning: Error deleting file: {repr(e)}")
             
-    print(f"[STT-GEMINI] Total characters transcribed: {len(result_text)}")
-    return result_text
+    # Parse text thành các chunks hội thoại
+    chunks = []
+    # Regex tìm các đoạn [Speaker X]: Nội dung
+    pattern = r"\[Speaker (\d+)\]:\s*(.*?)(?=\[Speaker \d+\]:|$)"
+    matches = re.finditer(pattern, result_text, re.DOTALL)
+    
+    for match in matches:
+        speaker_id = f"Người nói {match.group(1)}"
+        text = match.group(2).strip()
+        if text:
+            chunks.append({
+                "speaker": speaker_id,
+                "text": text,
+                "start": None,
+                "end": None
+            })
+
+    # Nếu không parse được theo định dạng trên (Gemini trả về text thuần), bọc cả cục vào 1 chunk
+    if not chunks:
+        chunks = [{"speaker": "Người nói 1", "text": result_text, "start": None, "end": None}]
+
+    print(f"[STT-GEMINI] Total characters: {len(result_text)}, Total chunks: {len(chunks)}")
+    return {
+        "full_text": result_text,
+        "chunks": chunks
+    }

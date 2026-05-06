@@ -48,7 +48,7 @@ const AudioUpload = ({ onCompleteData, token }) => {
           data.meeting_id = meetingId;
           if (data.status === 'completed') {
             stopPolling(); setUploadStatus('success');
-            if (onCompleteData && data.text) onCompleteData(data.text, data.meeting_id);
+            if (onCompleteData && data.text) onCompleteData(data.text, data.meeting_id, data.chunks || []);
           } else if (data.status === 'failed') {
             stopPolling(); setUploadStatus('');
             setError('Lỗi: Trí tuệ Nhân tạo Whisper không thể bóc băng file này.');
