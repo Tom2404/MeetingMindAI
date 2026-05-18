@@ -6,9 +6,9 @@ from google import genai
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Tìm đường dẫn đến thư mục backend (thư mục chứa file này là services/, cha của nó là backend/)
-backend_dir = Path(__file__).resolve().parent.parent
-env_path = backend_dir / ".env"
+# Tìm đường dẫn đến thư mục root (thư mục chứa file này là services/, cha là backend/, ông là root)
+root_dir = Path(__file__).resolve().parent.parent.parent
+env_path = root_dir / ".env"
 
 # Load file .env chính xác theo đường dẫn tuyệt đối
 load_dotenv(dotenv_path=env_path)
