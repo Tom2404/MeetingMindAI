@@ -29,12 +29,9 @@ MODEL_SIZE = "tiny"
 # Để None để AI tự động nhận diện ngôn ngữ (Tiếng Việt hoặc Tiếng Anh)
 LANGUAGE = None
 
-# Ngữ cảnh gợi ý cho Whisper — Giúp model nhận diện thuật ngữ cuộc họp tốt hơn
-INITIAL_PROMPT = (
-    "Đây là bản ghi âm cuộc họp. Nội dung thảo luận về "
-    "tiến độ dự án, phân công công việc, kết quả báo cáo, kế hoạch kinh doanh. "
-    "Các từ chuyên ngành: deadline, sprint, KPI, OKR, feedback, review."
-)
+# Không sử dụng câu mồi (Initial Prompt) để tránh model bị thiên kiến ngôn ngữ
+# và hỗ trợ bóc băng đa ngôn ngữ (Tiếng Anh, Tiếng Việt đan xen) một cách tự nhiên.
+INITIAL_PROMPT = None
 
 # Khởi tạo instance Whisper toàn cục, lazy-load khi cần
 _model = None
@@ -85,18 +82,18 @@ def transcribe_audio_local(audio_path: str) -> str:
         audio_path,
         language=LANGUAGE,            # Để None để tự động nhận diện Anh/Việt
         initial_prompt=INITIAL_PROMPT,
-        beam_size=2,                  # Tăng lên 2 để tránh lỗi lặp từ "Tên Tên"
-        best_of=1,
-        temperature=0.0,
+        beam_size=5,                  # Tăng lên 5 (chuẩn) để cho độ chính xác cao nhất
+        best_of=5,                    # Chọn kết quả tốt nhất trong 5 nhánh
+        temperature=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0], # Dải nhiệt độ dự phòng nếu model bị lặp
         vad_filter=True,               # Lọc khoảng im lặng/tiếng ồn nền
         vad_parameters=dict(
-            min_silence_duration_ms=300,   # Khoảng im lặng tối thiểu để cắt segment
-            speech_pad_ms=200,             # Thêm biên đệm để không cắt đứt câu
+            min_silence_duration_ms=300,   
+            speech_pad_ms=200,             
         ),
-        condition_on_previous_text=True,   # Dùng context đoạn trước → liên kết câu tốt hơn
-        word_timestamps=True,              # Bật timestamps từng chữ (hữu ích cho debug)
-        log_prob_threshold=-1.0,           # Chấp nhận segment có log prob thấp (không bỏ sót)
-        no_speech_threshold=0.6,           # Ngưỡng: segment nào >60% khả năng là "tiếng ồn" → bỏ qua
+        condition_on_previous_text=False,  # TẮT: Rất quan trọng để tránh lặp từ (Hallucination Loop)
+        word_timestamps=True,              
+        no_speech_threshold=0.6,           
+        compression_ratio_threshold=2.4,   # Ngưỡng phát hiện vòng lặp (vd: lặp từ 100 lần)
     )
 
     print(f"[STT-LOCAL] Language detected: '{info.language}' (confidence: {info.language_probability:.2%})")
@@ -201,3 +198,49 @@ def transcribe_audio_with_gemini(audio_path: str) -> dict:
         "full_text": result_text,
         "chunks": chunks
     }
+
+import numpy as np
+
+def transcribe_audio_buffer(audio_bytes: bytes, current_lang: str = None) -> tuple:
+    """
+    Bóc băng audio trực tiếp từ memory buffer (raw PCM float32 16kHz) phục vụ WebSockets realtime.
+    Trả về tuple (văn_bản_nhận_diện, ngôn_ngữ_đã_phát_hiện).
+    """
+    model = get_model()
+    
+    # Chuyển đổi raw bytes (từ Float32Array của trình duyệt) thành numpy array
+    audio_np = np.frombuffer(audio_bytes, dtype=np.float32)
+    
+    # Nhận diện tự động ngôn ngữ và bóc băng cho chunk này
+    # Tắt condition_on_previous_text để đảm bảo chunk mới hoàn toàn độc lập, không bị lây nhiễm chéo.
+    segments, info = model.transcribe(
+        audio_np,
+        language=None, # Tự động phát hiện lại ngôn ngữ cho MỖI chunk để hỗ trợ nói đan xen Anh/Việt
+        initial_prompt=INITIAL_PROMPT,
+        beam_size=5,
+        best_of=5,
+        temperature=[0.0, 0.2, 0.4, 0.6, 0.8],  # Fallback nhiệt độ để tự thoát vòng lặp
+        vad_filter=True,
+        condition_on_previous_text=False,  # KIÊN QUYẾT TẮT để tránh lây nhiễm vòng lặp giữa các chunk
+        no_speech_threshold=0.6,
+        compression_ratio_threshold=2.4,   # Chống lặp từ vô tận
+    )
+    
+    current_lang = info.language
+    
+    valid_segments = []
+    for segment in segments:
+        if segment.no_speech_prob > 0.8:
+            continue
+            
+        text = segment.text.strip()
+        # Regex loại bỏ các từ lấp chỗ trống rác phổ biến (uhm, uhh, ahh, ừm, ờm)
+        text = re.sub(r'\b(uhm+|uh+|ah+|ừm+|ờm+)\b', '', text, flags=re.IGNORECASE)
+        # Loại bỏ dấu câu thừa hoặc khoảng trắng thừa do xóa chữ
+        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r'^[.,\s]+', '', text)
+        
+        if text:
+            valid_segments.append(text)
+            
+    return " ".join(valid_segments), current_lang

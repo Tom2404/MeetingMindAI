@@ -3,8 +3,20 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const isRecordingRef = useRef(false);
+  const isPausedRef = useRef(false);
   const [time, setTime] = useState(0);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const transcriptEndRef = useRef(null);
+
+  // Auto-scroll transcript box
+  useEffect(() => {
+    if (transcriptEndRef.current) {
+      transcriptEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [transcript]);
 
   const mediaRecorderRef = useRef(null);
   const webSocketRef = useRef(null);
@@ -20,9 +32,44 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
     if (webSocketRef.current) return;
     const ws = new WebSocket(`ws://127.0.0.1:8000/api/v1/meetings/${meetingId}/stream`);
     ws.onopen = () => { console.log('WebSocket Connected!'); setSocketConnected(true); };
-    ws.onmessage = (event) => { console.log("STT Result:", event.data); };
-    ws.onclose = () => { console.log('WebSocket Closed.'); setSocketConnected(false); webSocketRef.current = null; };
+    ws.onmessage = (event) => { 
+      if (event.data.startsWith("{")) {
+         try {
+             const data = JSON.parse(event.data);
+             if (data.type === "final") {
+                setIsProcessing(false);
+                if (onCompleteData) onCompleteData(data.full_text, meetingId, data.chunks);
+                ws.close();
+                cleanupState();
+             } else if (data.type === "error") {
+                setIsProcessing(false);
+                alert(data.message);
+                ws.close();
+                cleanupState();
+             }
+         } catch(e) { console.error("Error parsing WS JSON", e); }
+      } else {
+         console.log("STT Result:", event.data); 
+         setTranscript(prev => (prev ? prev + " " : "") + event.data);
+      }
+    };
+    ws.onclose = (event) => { 
+      console.log('WebSocket Closed.', event.reason); 
+      setSocketConnected(false); 
+      webSocketRef.current = null; 
+      if (event.code === 1008) {
+        alert("Đã đạt giới hạn 30 phút. Phiên ghi âm sẽ tự động dừng.");
+        stopRecordingAndSocket();
+      }
+    };
     webSocketRef.current = ws;
+  };
+
+  const cleanupState = () => {
+    clearInterval(timerRef.current); setTime(0);
+    setIsRecording(false); isRecordingRef.current = false;
+    setIsPaused(false); isPausedRef.current = false;
+    setIsProcessing(false);
   };
 
   const drawWaveform = useCallback(() => {
@@ -63,22 +110,54 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       initWebSocket();
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      
       source.connect(analyser);
+      analyser.connect(processor);
+      processor.connect(audioContext.destination);
+
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
+      mediaRecorderRef.current = { stream, processor }; // Dùng ref giả lập mediaRecorder để dọn dẹp
       drawWaveform();
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorder.ondataavailable = async (event) => {
-        if (event.data?.size > 0 && webSocketRef.current?.readyState === WebSocket.OPEN)
-          webSocketRef.current.send(event.data);
+
+      let audioBuffer = [];
+      processor.onaudioprocess = (e) => {
+        if (!isRecordingRef.current || isPausedRef.current) return;
+        const channelData = e.inputBuffer.getChannelData(0);
+        audioBuffer.push(new Float32Array(channelData));
+        
+        // Cứ mỗi 8 chunks (~2 giây) thì gom lại gửi 1 lần
+        if (audioBuffer.length >= 8 && webSocketRef.current?.readyState === WebSocket.OPEN) {
+          const length = audioBuffer.reduce((acc, curr) => acc + curr.length, 0);
+          const result = new Float32Array(length);
+          let offset = 0;
+          for (const buf of audioBuffer) {
+              result.set(buf, offset);
+              offset += buf.length;
+          }
+          webSocketRef.current.send(result.buffer);
+          audioBuffer = [];
+        }
       };
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(3000);
-      setIsRecording(true); setIsPaused(false);
-      timerRef.current = setInterval(() => { setTime(p => p + 1); }, 1000);
+
+      setIsRecording(true); isRecordingRef.current = true;
+      setIsPaused(false); isPausedRef.current = false;
+      setTranscript(""); // Reset text khi bắt đầu mới
+      timerRef.current = setInterval(() => { 
+        setTime(p => {
+          const newTime = p + 1;
+          if (newTime >= 1800) { // 30 phút = 1800 giây
+             stopRecordingAndSocket();
+             alert("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.");
+          }
+          return newTime;
+        }); 
+      }, 1000);
     } catch (err) {
       console.error("Lỗi cấp quyền Mic:", err);
       alert("Bạn cần cấp quyền Microphone để ghi âm.");
@@ -86,30 +165,42 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
   };
 
   const pauseRecording = () => {
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.pause(); setIsPaused(true);
-      clearInterval(timerRef.current);
-      audioContextRef.current?.suspend();
-    }
+    setIsPaused(true); isPausedRef.current = true;
+    clearInterval(timerRef.current);
+    audioContextRef.current?.suspend();
   };
   const resumeRecording = () => {
-    if (mediaRecorderRef.current?.state === 'paused') {
-      mediaRecorderRef.current.resume(); setIsPaused(false);
-      timerRef.current = setInterval(() => { setTime(p => p + 1); }, 1000);
-      audioContextRef.current?.resume();
-    }
+    setIsPaused(false); isPausedRef.current = false;
+    timerRef.current = setInterval(() => { 
+      setTime(p => {
+        const newTime = p + 1;
+        if (newTime >= 1800) {
+           stopRecordingAndSocket();
+           alert("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.");
+        }
+        return newTime;
+      }); 
+    }, 1000);
+    audioContextRef.current?.resume();
   };
 
   const stopRecordingAndSocket = () => {
-    if (mediaRecorderRef.current?.state !== 'inactive') {
-      mediaRecorderRef.current?.stop();
-      mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.processor?.disconnect();
+      mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+      mediaRecorderRef.current = null;
     }
-    webSocketRef.current?.close();
-    clearInterval(timerRef.current); setTime(0);
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    audioContextRef.current?.close();
-    setIsRecording(false); setIsPaused(false);
+    
+    if (webSocketRef.current?.readyState === WebSocket.OPEN) {
+        setSocketConnected(false); 
+        setIsProcessing(true); // Hiển thị UI loading xịn
+        webSocketRef.current.send("STOP");
+    } else {
+        webSocketRef.current?.close();
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        audioContextRef.current?.close();
+        cleanupState();
+    }
   };
 
   const formatTime = (s) => {
@@ -165,6 +256,49 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
         <span className={`mm-dot ${socketConnected ? 'mm-dot--success mm-dot--pulse' : 'mm-dot--muted'}`}></span>
         {socketConnected ? 'Đã kết nối máy chủ nhận diện (Real-time)' : 'Máy chủ nhận diện đang chờ'}
       </div>
+
+      {/* Processing State */}
+      {isProcessing && (
+        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-6)', background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
+          <style>
+            {`@keyframes spin { 100% { transform: rotate(360deg); } }`}
+          </style>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite', margin: '0 auto var(--space-3)', display: 'block', color: 'var(--primary-color)' }}>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+          <h4 style={{ color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>Đang phân tích người nói...</h4>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', maxWidth: '280px', margin: '0 auto' }}>AI Gemini đang nghe lại và bóc tách hội thoại. Quá trình này giúp nâng cao độ chính xác lên đến 99%, vui lòng không đóng trang.</p>
+        </div>
+      )}
+
+      {/* Realtime Transcript */}
+      {(transcript || isRecording) && !isProcessing && (
+        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--bg-body)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>
+              Văn bản trực tiếp {isPaused && <span style={{ color: 'var(--danger-color)', marginLeft: 'var(--space-1)', textTransform: 'none' }}>(Đang tạm dừng)</span>}
+            </div>
+            {isRecording && !isPaused && (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <span className="mm-dot mm-dot--pulse" style={{ backgroundColor: 'var(--primary-color)' }}></span>
+                <span className="mm-dot mm-dot--pulse" style={{ backgroundColor: 'var(--primary-color)', animationDelay: '0.2s' }}></span>
+                <span className="mm-dot mm-dot--pulse" style={{ backgroundColor: 'var(--primary-color)', animationDelay: '0.4s' }}></span>
+              </div>
+            )}
+          </div>
+          <div id="transcript-box" style={{ fontSize: 'var(--text-md)', lineHeight: 1.6, minHeight: '60px', maxHeight: '200px', overflowY: 'auto', color: 'var(--text-primary)', paddingRight: 'var(--space-2)', scrollBehavior: 'smooth' }}>
+            {transcript ? (
+              <>
+                {transcript}
+                <div ref={transcriptEndRef} />
+              </>
+            ) : (
+              <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Đang lắng nghe...</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

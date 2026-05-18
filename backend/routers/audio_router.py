@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, BackgroundTasks, Header
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -17,6 +18,37 @@ router = APIRouter(prefix="/api/v1/meetings", tags=["meetings"])
 
 MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 ALLOWED_EXTENSIONS = [".mp3", ".wav", ".m4a"]
+
+class TranscriptSaveRequest(BaseModel):
+    title: str
+    transcript: str
+    chunks: list = []
+
+@router.post("/save-transcript")
+def save_transcript(
+    request: TranscriptSaveRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Lưu bản bóc băng Realtime vào Database (Tránh mất dữ liệu)"""
+    meeting = Meeting(
+        title=request.title,
+        status=MeetingStatus.COMPLETED,
+        user_id=current_user.id if current_user else None
+    )
+    db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    
+    transcript = Transcript(
+        meeting_id=meeting.id,
+        full_text=request.transcript,
+        chunks=request.chunks
+    )
+    db.add(transcript)
+    db.commit()
+    
+    return {"meeting_id": meeting.id, "message": "Đã lưu bản bóc băng"}
 
 
 def run_stt_pipeline_task(meeting_id: int):

@@ -25,7 +25,7 @@ function App() {
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [currentChunks, setCurrentChunks] = useState([]);
   const [currentMeetingId, setCurrentMeetingId] = useState(null);
-  const [activePage, setActivePage] = useState('new');
+  const [activePage, setActivePage] = useState('home'); // home, room, history, history_view, status
   const [viewingSummaryId, setViewingSummaryId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
@@ -46,15 +46,73 @@ function App() {
   }, []);
 
   const handleLoginSuccess = (user, t) => { setCurrentUser(user); setToken(t); };
-  const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); setCurrentUser(null); setToken(null); setCurrentTranscript(""); setCurrentMeetingId(null); setViewingSummaryId(null); setMeetingInfo(null); setActiveMethod(null); };
-  const handleProcessComplete = (transcript, meetingId, chunks = []) => { 
+  const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); setCurrentUser(null); setToken(null); setCurrentTranscript(""); setCurrentMeetingId(null); setViewingSummaryId(null); setMeetingInfo(null); setActiveMethod(null); setActivePage('home'); };
+  
+  const handleProcessComplete = async (transcript, meetingId, chunks = []) => { 
     setCurrentTranscript(transcript); 
     setCurrentChunks(chunks);
-    if (meetingId) setCurrentMeetingId(meetingId); 
+    
+    let savedMeetingId = meetingId;
+    // Auto-save realtime transcript if it hasn't been saved yet (string format)
+    if (typeof meetingId === 'string' && meetingId.startsWith('meeting-')) {
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch('http://127.0.0.1:8000/api/v1/meetings/save-transcript', {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    title: meetingInfo?.meetingName || `Bản bóc băng Realtime ${new Date().toLocaleTimeString('vi-VN')}`,
+                    transcript: transcript,
+                    chunks: chunks
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                savedMeetingId = data.meeting_id;
+                console.log("Auto-saved realtime transcript to History:", savedMeetingId);
+            }
+        } catch(e) { console.error("Auto-save failed", e); }
+    }
+    
+    setCurrentMeetingId(savedMeetingId); 
   };
-  const handleViewSummary = (meetingId) => { setViewingSummaryId(meetingId); setActivePage('new'); };
-  const handleSetupConfirm = (info) => { setMeetingInfo(info); setActiveMethod(info.method); setShowSetup(false); setCurrentTranscript(""); setCurrentMeetingId(null); setViewingSummaryId(null); setActivePage('new'); };
-  const handleBackToSetup = () => { setMeetingInfo(null); setActiveMethod(null); setCurrentTranscript(""); };
+  
+  const handleViewSummary = (meetingId) => { setViewingSummaryId(meetingId); setActivePage('history_view'); };
+  
+  const handleSetupConfirm = (info) => { 
+    setMeetingInfo(info); 
+    setActiveMethod(info.method); 
+    setShowSetup(false); 
+    setCurrentTranscript(""); 
+    setCurrentMeetingId(null); 
+    setActivePage('room'); 
+  };
+  
+  const handleNewMeetingClick = () => {
+      if (meetingInfo && activePage !== 'room') {
+          // Already have a room, but currently viewing something else. Just go back to room.
+          setActivePage('room');
+          closeSidebar();
+          return;
+      }
+      
+      if (meetingInfo && activePage === 'room') {
+          if (!window.confirm("Bắt đầu cuộc họp mới sẽ đóng phiên làm việc hiện tại. Bạn có chắc chắn?")) return;
+      }
+      setMeetingInfo(null); 
+      setActiveMethod(null); 
+      setCurrentTranscript(""); 
+      setCurrentMeetingId(null); 
+      setViewingSummaryId(null); 
+      setActivePage('home');
+      closeSidebar();
+  };
+  
+  const handleBackToSetup = () => { 
+      if (window.confirm("Hủy phiên làm việc hiện tại? Các dữ liệu chưa lưu sẽ bị mất.")) {
+          setMeetingInfo(null); setActiveMethod(null); setCurrentTranscript(""); setActivePage('home'); 
+      }
+  };
   const closeSidebar = () => setSidebarOpen(false);
 
   const getGreeting = () => { const h = new Date().getHours(); return h < 12 ? 'Chào buổi sáng' : h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối'; };
@@ -87,17 +145,18 @@ function App() {
 
         <nav className="sidebar__nav">
           <span className="sidebar__section-label">Công việc</span>
-          {[
-            { key: 'new', label: 'Cuộc họp mới' },
-            { key: 'history', label: 'Lịch sử' },
-          ].map(item => (
-            <button key={item.key}
-              className={`sidebar__item ${activePage === item.key ? 'sidebar__item--active' : ''}`}
-              onClick={() => { setActivePage(item.key); if(item.key==='history') setViewingSummaryId(null); closeSidebar(); }}
-            >
-              {item.label}
-            </button>
-          ))}
+          <button 
+            className={`sidebar__item ${activePage === 'home' || activePage === 'room' ? 'sidebar__item--active' : ''}`}
+            onClick={handleNewMeetingClick}
+          >
+            {meetingInfo ? '🔴 Phòng họp hiện tại' : 'Cuộc họp mới'}
+          </button>
+          <button 
+            className={`sidebar__item ${activePage === 'history' || activePage === 'history_view' ? 'sidebar__item--active' : ''}`}
+            onClick={() => { setActivePage('history'); closeSidebar(); }}
+          >
+            Lịch sử cuộc họp
+          </button>
 
           <span className="sidebar__section-label">Hệ thống</span>
           <button className={`sidebar__item ${activePage === 'status' ? 'sidebar__item--active' : ''}`}
@@ -123,8 +182,14 @@ function App() {
           <div className="header__left">
             <button className="header__hamburger" onClick={() => setSidebarOpen(true)} aria-label="Menu"><IconMenu /></button>
             <div>
-              <div className="header__title">{PAGES[activePage] || ''}</div>
-              {meetingInfo && activePage === 'new' && <div className="header__breadcrumb">Bản ghi: {meetingInfo.meetingName}</div>}
+              <div className="header__title">
+                {activePage === 'home' && 'Bắt đầu'}
+                {activePage === 'room' && 'Phòng họp'}
+                {activePage === 'history' && 'Lịch sử cuộc họp'}
+                {activePage === 'history_view' && 'Bản tóm tắt cũ'}
+                {activePage === 'status' && 'Trạng thái AI'}
+              </div>
+              {meetingInfo && activePage === 'room' && <div className="header__breadcrumb">Phiên: {meetingInfo.meetingName}</div>}
             </div>
           </div>
           <div className="header__right">
@@ -134,88 +199,85 @@ function App() {
         </header>
 
         <div className="page-content" key={activePage}>
-          {/* ══ New Meeting ══ */}
-          {activePage === 'new' && (
-            <>
-              {!meetingInfo && !viewingSummaryId && (
-                <div className="animate-fade-in">
-                  <div className="page-greeting">
-                    <h1 className="page-greeting__hello">{getGreeting()}, {displayName}</h1>
-                    <p className="page-greeting__sub">Bạn muốn bắt đầu phân tích cuộc họp nào hôm nay?</p>
+          {/* ══ Màn hình Bắt đầu (Home) ══ */}
+          {activePage === 'home' && (
+            <div className="animate-fade-in">
+              <div className="page-greeting">
+                <h1 className="page-greeting__hello">{getGreeting()}, {displayName}</h1>
+                <p className="page-greeting__sub">Bạn muốn bắt đầu phân tích cuộc họp nào hôm nay?</p>
+              </div>
+              
+              <div className="cta-hero" style={{ marginTop:'var(--space-6)' }}>
+                <div className="cta-hero__title">Tạo phiên làm việc mới</div>
+                <p className="cta-hero__desc">Hệ thống hỗ trợ tải file âm thanh có sẵn hoặc ghi âm trực tiếp để bóc băng và tóm tắt tự động.</p>
+                <button className="mm-btn mm-btn--lg mm-btn--primary" onClick={() => setShowSetup(true)}>
+                  Bắt đầu cuộc họp
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ══ Phòng họp Đang diễn ra (Room) ══ */}
+          {activePage === 'room' && meetingInfo && (
+            <div className="animate-fade-in">
+              <div className="mm-card mm-card--accent" style={{ marginBottom:'var(--space-5)' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:'var(--text-lg)', color:'var(--text-primary)', marginBottom:4, fontFamily:'var(--font-display)' }}>{meetingInfo.meetingName}</div>
+                    <div style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)', display:'flex', gap:'var(--space-4)', flexWrap:'wrap' }}>
+                      {meetingInfo.host && <span>Chủ trì: {meetingInfo.host}</span>}
+                      {meetingInfo.participants && <span>Tham gia: {meetingInfo.participants}</span>}
+                      <span>Ngày: {new Date().toLocaleDateString('vi-VN')}</span>
+                    </div>
                   </div>
-                  
-                  <div className="cta-hero" style={{ marginTop:'var(--space-6)' }}>
-                    <div className="cta-hero__title">Tạo phiên làm việc mới</div>
-                    <p className="cta-hero__desc">Hệ thống hỗ trợ tải file âm thanh có sẵn hoặc ghi âm trực tiếp để bóc băng và tóm tắt tự động.</p>
-                    <button className="mm-btn mm-btn--lg mm-btn--primary" onClick={() => setShowSetup(true)}>
-                      Bắt đầu cuộc họp
-                    </button>
+                  <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleBackToSetup}>Hủy phiên</button>
+                </div>
+              </div>
+
+              {activeMethod === 'upload' && (
+                <div className="mm-card">
+                  <div className="mm-card__header">
+                    <div className="mm-card__title">Tải lên tệp âm thanh</div>
                   </div>
+                  <AudioUpload onCompleteData={handleProcessComplete} token={token} />
                 </div>
               )}
 
-              {meetingInfo && (
-                <div className="animate-fade-in">
-                  <div className="mm-card mm-card--accent" style={{ marginBottom:'var(--space-5)' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <div>
-                        <div style={{ fontWeight:700, fontSize:'var(--text-lg)', color:'var(--text-primary)', marginBottom:4, fontFamily:'var(--font-display)' }}>{meetingInfo.meetingName}</div>
-                        <div style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)', display:'flex', gap:'var(--space-4)', flexWrap:'wrap' }}>
-                          {meetingInfo.host && <span>Chủ trì: {meetingInfo.host}</span>}
-                          {meetingInfo.participants && <span>Tham gia: {meetingInfo.participants}</span>}
-                          <span>Ngày: {new Date().toLocaleDateString('vi-VN')}</span>
-                        </div>
-                      </div>
-                      <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleBackToSetup}>Hủy phiên</button>
-                    </div>
+              {activeMethod === 'record' && (
+                <div className="mm-card">
+                  <div className="mm-card__header">
+                    <div className="mm-card__title">Ghi âm trực tiếp</div>
                   </div>
-
-                  {activeMethod === 'upload' && (
-                    <div className="mm-card">
-                      <div className="mm-card__header">
-                        <div className="mm-card__title">Tải lên tệp âm thanh</div>
-                      </div>
-                      <AudioUpload onCompleteData={handleProcessComplete} token={token} />
-                    </div>
-                  )}
-
-                  {activeMethod === 'record' && (
-                    <div className="mm-card">
-                      <div className="mm-card__header">
-                        <div className="mm-card__title">Ghi âm trực tiếp</div>
-                      </div>
-                      <AudioRecorder meetingId={wsMeetingId} onCompleteData={handleProcessComplete} />
-                    </div>
-                  )}
-
-                  <div className="mm-card" style={{ marginTop:'var(--space-5)' }}>
-                    <div className="mm-card__header">
-                      <div className="mm-card__title">Phân tích và Tóm tắt AI</div>
-                    </div>
-                    <MeetingSummary 
-                      meetingId={currentMeetingId || wsMeetingId} 
-                      activeTranscript={currentTranscript} 
-                      activeChunks={currentChunks}
-                      viewingSummaryId={viewingSummaryId} 
-                      token={token} 
-                      meetingInfo={meetingInfo} 
-                    />
-                  </div>
+                  <AudioRecorder meetingId={wsMeetingId} onCompleteData={handleProcessComplete} />
                 </div>
               )}
 
-              {viewingSummaryId && !meetingInfo && (
-                <div className="animate-fade-in">
-                  <div className="mm-card">
-                    <div className="mm-card__header">
-                      <div className="mm-card__title">Chi tiết bản tóm tắt</div>
-                      <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => setViewingSummaryId(null)}>Đóng</button>
-                    </div>
-                    <MeetingSummary meetingId={viewingSummaryId} activeTranscript={currentTranscript} viewingSummaryId={viewingSummaryId} token={token} />
-                  </div>
+              <div className="mm-card" style={{ marginTop:'var(--space-5)' }}>
+                <div className="mm-card__header">
+                  <div className="mm-card__title">Phân tích và Tóm tắt AI</div>
                 </div>
-              )}
-            </>
+                <MeetingSummary 
+                  meetingId={currentMeetingId || wsMeetingId} 
+                  activeTranscript={currentTranscript} 
+                  activeChunks={currentChunks}
+                  token={token} 
+                  meetingInfo={meetingInfo} 
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ══ Màn hình Xem Lịch sử (History View) ══ */}
+          {activePage === 'history_view' && viewingSummaryId && (
+            <div className="animate-fade-in">
+              <div className="mm-card">
+                <div className="mm-card__header">
+                  <div className="mm-card__title">Chi tiết bản tóm tắt</div>
+                  <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => setActivePage('history')}>← Quay lại Lịch sử</button>
+                </div>
+                <MeetingSummary meetingId={viewingSummaryId} viewingSummaryId={viewingSummaryId} token={token} />
+              </div>
+            </div>
           )}
 
           {activePage === 'history' && (

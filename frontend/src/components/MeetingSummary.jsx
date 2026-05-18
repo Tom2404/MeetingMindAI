@@ -9,6 +9,30 @@ const PRIORITY_CONFIG = {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
+const DecisionCard = ({ decision, index }) => {
+  if (typeof decision === 'string') {
+    return (
+      <div style={{ padding: 'var(--space-3)', background: 'var(--bg-body)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
+        <span style={{ color: 'var(--google-green)', fontWeight: 700, marginRight: '4px' }}>{index + 1}.</span> {decision}
+      </div>
+    );
+  }
+  
+  return (
+    <div style={{ padding: 'var(--space-3)', background: 'var(--bg-body)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-2)' }}>
+      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px', fontSize: 'var(--text-md)' }}>
+        <span style={{ color: 'var(--google-green)', marginRight: '4px' }}>{index + 1}.</span> 
+        {decision.subject && `[${decision.subject}] `}{decision.action}
+      </div>
+      {decision.outcome && (
+        <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+          <span style={{ fontWeight: 600 }}>Kết quả/Hệ quả:</span> {decision.outcome}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PriorityBadge = ({ priority = 'medium' }) => {
   const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.medium;
   return (
@@ -255,9 +279,12 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       
+      const parsedMeetingId = parseInt(meetingId, 10);
+      const finalMeetingId = isNaN(parsedMeetingId) ? null : parsedMeetingId;
+
       const payload = {
         transcript: editableTranscript || activeTranscript,
-        meeting_id: meetingId || null,
+        meeting_id: finalMeetingId,
         ai_provider: overrideProvider || aiProvider
       };
 
