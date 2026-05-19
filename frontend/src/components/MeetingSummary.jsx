@@ -1,10 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+// ─── SVG Icons ───
+const IconEdit = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>;
+const IconSave = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
+const IconCancel = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+const IconPlus = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const IconTarget = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
+const IconZap = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+const IconFileText = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
+const IconUser = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+const IconCalendar = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+const IconTag = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>;
+
 // ─── Priority badge config ───────────────────────────────────────────────────
 const PRIORITY_CONFIG = {
-  high:   { label: 'Cao',    color: '#ea4335', bg: 'rgba(234,67,53,0.10)',   icon: '🔴' },
-  medium: { label: 'Vừa',   color: '#fbbc04', bg: 'rgba(251,188,4,0.12)',   icon: '🟡' },
-  low:    { label: 'Thấp',  color: '#34a853', bg: 'rgba(52,168,83,0.10)',   icon: '🟢' },
+  high:   { label: 'Cao',    color: '#ea4335', bg: 'rgba(234,67,53,0.10)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
+  medium: { label: 'Vừa',   color: '#fbbc04', bg: 'rgba(251,188,4,0.12)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
+  low:    { label: 'Thấp',  color: '#34a853', bg: 'rgba(52,168,83,0.10)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -43,7 +56,7 @@ const PriorityBadge = ({ priority = 'medium' }) => {
       color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.color}33`,
       whiteSpace: 'nowrap',
     }}>
-      {cfg.icon} {cfg.label}
+      <svg width="8" height="8" viewBox="0 0 24 24">{cfg.icon}</svg> {cfg.label}
     </span>
   );
 };
@@ -54,6 +67,7 @@ const KeyTopicTags = ({ topics = [] }) => {
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
       {topics.map((t, i) => (
         <span key={i} style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
           fontSize: 'var(--text-xs)', fontWeight: 600,
           padding: '3px 10px', borderRadius: 'var(--radius-full)',
           background: 'var(--bg-surface-hover)',
@@ -61,7 +75,7 @@ const KeyTopicTags = ({ topics = [] }) => {
           border: '1px solid var(--border-default)',
           letterSpacing: '0.01em',
         }}>
-          📌 {t}
+          <IconTag /> {t}
         </span>
       ))}
     </div>
@@ -69,12 +83,12 @@ const KeyTopicTags = ({ topics = [] }) => {
 };
 
 const SPEAKER_COLORS = [
-  { main: '#1a73e8', bg: 'rgba(26, 115, 232, 0.06)', border: 'rgba(26, 115, 232, 0.15)' }, // Blue
-  { main: '#ea4335', bg: 'rgba(234, 67, 53, 0.06)', border: 'rgba(234, 67, 53, 0.15)' }, // Red
-  { main: '#fbbc04', bg: 'rgba(251, 188, 4, 0.08)', border: 'rgba(251, 188, 4, 0.2)' },  // Yellow
-  { main: '#34a853', bg: 'rgba(52, 168, 83, 0.06)', border: 'rgba(52, 168, 83, 0.15)' }, // Green
-  { main: '#a142f4', bg: 'rgba(161, 66, 244, 0.06)', border: 'rgba(161, 66, 244, 0.15)' }, // Purple
-  { main: '#00acc1', bg: 'rgba(0, 172, 193, 0.06)', border: 'rgba(0, 172, 193, 0.15)' }, // Cyan
+  { main: '#1a73e8', bg: 'rgba(26, 115, 232, 0.06)', border: 'rgba(26, 115, 232, 0.15)' },
+  { main: '#ea4335', bg: 'rgba(234, 67, 53, 0.06)', border: 'rgba(234, 67, 53, 0.15)' },
+  { main: '#fbbc04', bg: 'rgba(251, 188, 4, 0.08)', border: 'rgba(251, 188, 4, 0.2)' },
+  { main: '#34a853', bg: 'rgba(52, 168, 83, 0.06)', border: 'rgba(52, 168, 83, 0.15)' },
+  { main: '#a142f4', bg: 'rgba(161, 66, 244, 0.06)', border: 'rgba(161, 66, 244, 0.15)' },
+  { main: '#00acc1', bg: 'rgba(0, 172, 193, 0.06)', border: 'rgba(0, 172, 193, 0.15)' },
 ];
 
 const getSpeakerStyle = (speakerName, allSpeakers) => {
@@ -106,59 +120,37 @@ const TranscriptBubble = ({ chunk, index, allSpeakers, onSpeakerNameChange }) =>
   };
 
   const bubbleStyles = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    maxWidth: '85%',
-    alignSelf: isLeft ? 'flex-start' : 'flex-end',
-    marginBottom: 'var(--space-4)',
+    display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '85%',
+    alignSelf: isLeft ? 'flex-start' : 'flex-end', marginBottom: 'var(--space-4)',
   };
 
   const contentStyles = {
-    padding: 'var(--space-3) var(--space-4)',
-    borderRadius: 'var(--radius-lg)',
-    fontSize: 'var(--text-md)',
-    lineHeight: 1.6,
-    background: style.bg,
-    border: `1px solid ${style.border}`,
-    color: 'var(--text-primary)',
-    boxShadow: 'var(--shadow-sm)',
-    borderTopLeftRadius: isLeft ? '2px' : 'var(--radius-lg)',
+    padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius-lg)',
+    fontSize: 'var(--text-md)', lineHeight: 1.6, background: style.bg,
+    border: `1px solid ${style.border}`, color: 'var(--text-primary)',
+    boxShadow: 'var(--shadow-sm)', borderTopLeftRadius: isLeft ? '2px' : 'var(--radius-lg)',
     borderTopRightRadius: isLeft ? 'var(--radius-lg)' : '2px',
-  };
-
-  const speakerLabelStyles = {
-    fontSize: 'var(--text-xs)',
-    fontWeight: 700,
-    color: style.main,
-    marginBottom: '2px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    flexDirection: isLeft ? 'row' : 'row-reverse',
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <div style={bubbleStyles}>
-        <div style={speakerLabelStyles}>
+        <div style={{
+          fontSize: 'var(--text-xs)', fontWeight: 700, color: style.main, marginBottom: '2px',
+          display: 'flex', alignItems: 'center', gap: '6px', flexDirection: isLeft ? 'row' : 'row-reverse',
+        }}>
           <div style={{ 
-            width: 28, height: 28, borderRadius: '50%', 
-            background: style.main,
+            width: 28, height: 28, borderRadius: '50%', background: style.main,
             color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 800, flexShrink: 0,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            fontSize: 11, fontWeight: 800, flexShrink: 0, boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}>
             {speakerId.charAt(0).toUpperCase()}
           </div>
           
           {isEditing ? (
             <input 
-              autoFocus
-              value={tempName}
-              onChange={(e) => setTempName(e.target.value)}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
+              autoFocus value={tempName} onChange={(e) => setTempName(e.target.value)}
+              onBlur={handleBlur} onKeyDown={handleKeyDown}
               style={{
                 background: 'var(--bg-body)', border: `1px solid ${style.main}`,
                 color: 'var(--text-primary)', fontSize: 'var(--text-xs)',
@@ -178,9 +170,7 @@ const TranscriptBubble = ({ chunk, index, allSpeakers, onSpeakerNameChange }) =>
             </span>
           )}
         </div>
-        <div style={contentStyles}>
-          {chunk.text}
-        </div>
+        <div style={contentStyles}>{chunk.text}</div>
       </div>
     </div>
   );
@@ -195,23 +185,23 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const [errorType, setErrorType]           = useState('');
   const [loadingSeconds, setLoadingSeconds] = useState(0);
   const [isSaved, setIsSaved]               = useState(false);
-  const [aiProvider, setAiProvider]         = useState('gemini'); // Default to gemini for diarization
+  const [aiProvider, setAiProvider]         = useState('gemini'); 
   const [editableTranscript, setEditableTranscript] = useState('');
   const [transcriptChunks, setTranscriptChunks]   = useState([]);
-  const [activeTab, setActiveTab]           = useState('summary'); // 'transcript' or 'summary'
-  const lastProcessedTranscript             = useRef(null);
+  const [activeTab, setActiveTab]           = useState('summary'); 
+  
+  // Edit mode states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   useEffect(() => { if (viewingSummaryId) loadSavedSummary(viewingSummaryId); }, [viewingSummaryId]);
 
   useEffect(() => {
     if (activeTranscript) {
       setEditableTranscript(activeTranscript);
-      if (activeChunks) {
-        setTranscriptChunks(activeChunks);
-      }
-      if (!summaryData) {
-        setActiveTab('transcript');
-      }
+      if (activeChunks) setTranscriptChunks(activeChunks);
+      if (!summaryData) setActiveTab('transcript');
     }
   }, [activeTranscript, activeChunks]);
 
@@ -233,18 +223,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       setSummaryData(data.summary);
       if (data.transcript) {
         setEditableTranscript(data.transcript);
-        if (data.chunks && data.chunks.length > 0) {
-          setTranscriptChunks(data.chunks);
-        } else {
-          setTranscriptChunks([]);
-        }
+        if (data.chunks && data.chunks.length > 0) setTranscriptChunks(data.chunks);
+        else setTranscriptChunks([]);
       }
-      // Nếu chưa có ID summary (nghĩa là backend trả về placeholder), thì tự động mở tab văn bản
-      if (data.summary && data.summary.id) {
-        setActiveTab('summary');
-      } else {
-        setActiveTab('transcript');
-      }
+      if (data.summary && data.summary.id) setActiveTab('summary');
+      else setActiveTab('transcript');
     } catch (err) {
       if (err.message?.startsWith('server:')) {
         setErrorType('server'); setErrorMsg(`Không tải được (mã lỗi ${err.message.replace('server:', '')})`);
@@ -258,18 +241,12 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   const handleSpeakerNameChange = (oldName, newName) => {
     if (!newName || oldName === newName) return;
-    
-    // 1. Cập nhật danh sách chunks (đổi tên cho tất cả các đoạn của người đó)
     const updatedChunks = transcriptChunks.map(chunk => 
       chunk.speaker === oldName ? { ...chunk, speaker: newName } : chunk
     );
     setTranscriptChunks(updatedChunks);
-    
-    // 2. Cập nhật lại chuỗi văn bản thô để LLM hiểu đúng ngữ cảnh tên mới
     const updatedFullText = updatedChunks.map(c => `[${c.speaker}]: ${c.text}`).join('\n');
     setEditableTranscript(updatedFullText);
-    
-    console.log(`[UI] Đã đổi tên người nói: ${oldName} -> ${newName}`);
   };
 
   const handleStartSummarize = async (overrideProvider) => {
@@ -289,8 +266,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       };
 
       const res = await fetch('http://127.0.0.1:8000/api/v1/meetings/summarize', {
-        method: 'POST', headers,
-        body: JSON.stringify(payload),
+        method: 'POST', headers, body: JSON.stringify(payload),
       });
       if (!res.ok) {
         if (res.status === 500) {
@@ -319,6 +295,47 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       (item.id || i) === uid ? { ...item, completed: !item.completed } : item
     );
     setSummaryData({ ...summaryData, action_items: updated });
+    // In real app, we should also call the backend to update status here if needed
+  };
+
+  const startEditing = () => {
+    setEditFormData(JSON.parse(JSON.stringify(summaryData))); // deep copy
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditFormData(null);
+  };
+
+  const saveEdits = async () => {
+    setIsSavingEdit(true);
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const parsedMeetingId = parseInt(meetingId, 10);
+      
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/meetings/${parsedMeetingId}/summary`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          summary_text: editFormData.summary_text,
+          decisions: editFormData.decisions,
+          action_items: editFormData.action_items
+        })
+      });
+      
+      if (!res.ok) throw new Error('Cập nhật thất bại');
+      
+      setSummaryData(editFormData);
+      setIsEditing(false);
+      setIsSaved(true);
+    } catch (err) {
+      alert("Lỗi khi lưu: " + err.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleExportTxt = () => {
@@ -329,9 +346,6 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       if (meetingInfo.host) t += `Chủ trì:  ${meetingInfo.host}\n`;
       if (meetingInfo.participants) t += `Tham dự: ${meetingInfo.participants}\n`;
       t += '\n';
-    }
-    if (summaryData.key_topics?.length) {
-      t += `CHỦ ĐỀ CHÍNH: ${summaryData.key_topics.join(' • ')}\n\n`;
     }
     t += `1. TÓM TẮT\n${'-'.repeat(30)}\n${summaryData.summary_text}\n\n`;
     t += `2. CÁC QUYẾT ĐỊNH\n${'-'.repeat(30)}\n`;
@@ -346,9 +360,6 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       const pri = item.priority ? `[${item.priority.toUpperCase()}] ` : '';
       t += `${chk} ${pri}${item.task_name}\n    Phụ trách: ${item.assignee || 'Trống'} | Hạn: ${item.deadline || 'Trống'}\n`;
     });
-    if (summaryData.processing_metadata) {
-      t += `\n${'='.repeat(50)}\nXử lý bởi: ${summaryData.processing_metadata.model_used} | ${summaryData.processing_metadata.timestamp}\n`;
-    }
     const blob = new Blob([t], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -356,9 +367,9 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPdf = () => window.print();
-
-  const title = meetingInfo?.meetingName || meetingId || 'Test';
+  const title = meetingInfo?.meetingName || meetingId || 'Chưa đặt tên';
+  
+  // Data for viewing
   const decisions = summaryData?.decisions || [];
   const actionItems = summaryData?.action_items || [];
   const keyTopics = summaryData?.key_topics || [];
@@ -366,15 +377,13 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   return (
     <div className="summary">
-      {/* ── Header ── */}
       <div className="summary__header no-print">
         <div className="summary__title">Kết quả Khai thác ({title})</div>
-        <div className="summary__actions">
-          {isSaved && <span className="mm-badge mm-badge--saved">💾 Đã lưu</span>}
+        <div className="summary__actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {isSaved && <span className="mm-badge mm-badge--saved" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconSave/> Đã lưu</span>}
         </div>
       </div>
 
-      {/* ── Loading ── */}
       {isLoading && (
         <div className="summary__loading no-print">
           <div className="mm-spinner mm-spinner--lg mm-spinner--primary" style={{ margin: '0 auto' }} />
@@ -389,26 +398,16 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                   <div className="progress-bar__fill" style={{ width: `${Math.min((loadingSeconds / 30) * 100, 95)}%` }} />
                 </div>
               </div>
-              <p className="summary__loading-sub">*AI đang đọc và phân tích transcript — trích xuất quyết định & công việc</p>
             </>
           )}
         </div>
       )}
 
-      {/* ── Error ── */}
       {errorMsg && (
         <div className={`mm-alert mm-alert--${errorType === 'network' ? 'info' : errorType === 'ai' ? 'warning' : 'danger'}`}
           style={{ marginTop: 'var(--space-5)' }}>
-          <span className="mm-alert__icon">
-            {errorType === 'network' ? '🔌' : errorType === 'ai' ? '🤖' : '⚠️'}
-          </span>
           <div className="mm-alert__content">
-            <span className="mm-alert__title">
-              {errorType === 'network' && 'Không kết nối được Backend'}
-              {errorType === 'ai'      && 'Không nhận diện được AI'}
-              {errorType === 'server'  && 'Lỗi xử lý phía máy chủ'}
-              {!errorType              && 'Lỗi hệ thống'}
-            </span>
+            <span className="mm-alert__title">Lỗi hệ thống</span>
             <span className="mm-alert__message">{errorMsg}</span>
           </div>
           <button className="mm-btn mm-btn--sm mm-btn--danger"
@@ -418,7 +417,6 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         </div>
       )}
 
-      {/* ── Tabs (nếu có nội dung) ── */}
       {editableTranscript && !isLoading && !errorMsg && (
         <div className="mm-tabs no-print" style={{ display: 'flex', gap: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', marginBottom: 'var(--space-5)' }}>
           <button 
@@ -450,38 +448,30 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         </div>
       )}
 
-      {/* ── Empty State ── */}
       {!summaryData && !editableTranscript && !isLoading && !errorMsg && (
-        <div className="mm-empty no-print">
-          <div className="mm-empty__icon">📝</div>
+        <div className="mm-empty no-print glass-panel">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-tertiary)', marginBottom: '16px' }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           <div className="mm-empty__title">Chưa có dữ liệu tóm tắt</div>
           <div className="mm-empty__desc">Vui lòng ghi âm hoặc tải file lên. Khi đã bóc băng xong, bạn có thể chạy AI để tóm tắt.</div>
         </div>
       )}
 
-      {/* ── Transcript Content ── */}
       {activeTab === 'transcript' && editableTranscript && !isLoading && !errorMsg && (
         <div className="transcript-section animate-fade-in">
           <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none' }}>
             <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên và chỉnh sửa nội dung văn bản.</span>
-              <span style={{ fontWeight: 600, background: 'var(--bg-surface-hover)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
-                {editableTranscript.length} ký tự
-              </span>
+              <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên.</span>
             </div>
             {transcriptChunks.length > 0 ? (
               <div className="transcript-bubbles" style={{ 
                 display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', 
                 maxHeight: '600px', overflowY: 'auto', padding: 'var(--space-4)',
                 background: 'var(--bg-body)', borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-default)',
-                scrollBehavior: 'smooth'
+                border: '1px solid var(--border-default)'
               }}>
                 {transcriptChunks.map((chunk, i) => (
                   <TranscriptBubble 
-                    key={i} 
-                    chunk={chunk} 
-                    index={i} 
+                    key={i} chunk={chunk} index={i} 
                     allSpeakers={[...new Set(transcriptChunks.map(c => c.speaker))]}
                     onSpeakerNameChange={handleSpeakerNameChange}
                   />
@@ -495,156 +485,167 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                   width: '100%', minHeight: '300px', padding: 'var(--space-3)',
                   borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)',
                   background: 'var(--bg-body)', color: 'var(--text-primary)',
-                  fontFamily: 'inherit', fontSize: 'var(--text-md)', lineHeight: 1.6,
-                  resize: 'vertical', outline: 'none'
+                  fontFamily: 'inherit', fontSize: 'var(--text-md)', lineHeight: 1.6, resize: 'vertical'
                 }}
-                placeholder="Nội dung bóc băng sẽ hiển thị ở đây..."
-                onFocus={(e) => e.target.style.borderColor = 'var(--primary-400)'}
-                onBlur={(e) => e.target.style.borderColor = 'var(--border-default)'}
               />
             )}
           </div>
           
-          {/* Hybrid Provider Selector & Summarize Button */}
           {!summaryData && (
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <div style={{ display: 'flex', gap: 'var(--space-2)', background: 'var(--bg-surface-hover)', padding: 'var(--space-1)', borderRadius: 'var(--radius-full)' }}>
-                <button 
-                  className={`mm-btn mm-btn--sm ${aiProvider === 'ollama' ? 'mm-btn--primary' : 'mm-btn--ghost'}`}
-                  style={{ borderRadius: 'var(--radius-full)' }}
-                  onClick={() => setAiProvider('ollama')}
-                >
-                  🔒 Local (An Toàn)
-                </button>
-                <button 
-                  className={`mm-btn mm-btn--sm ${aiProvider === 'gemini' ? 'mm-btn--primary' : 'mm-btn--ghost'}`}
-                  style={{ borderRadius: 'var(--radius-full)' }}
-                  onClick={() => setAiProvider('gemini')}
-                >
-                  ☁️ Cloud (Thông minh)
-                </button>
-              </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', maxWidth: '300px', textAlign: 'center' }}>
-                {aiProvider === 'ollama' 
-                  ? '*Bảo mật tuyệt đối 100%, chạy hoàn toàn trên máy tính của bạn.' 
-                  : '*Tốc độ cực nhanh và nhận diện Tiếng Việt xuất sắc bằng AI đám mây.'}
-              </p>
-              <button 
-                className="mm-btn mm-btn--lg mm-btn--primary" 
-                onClick={() => handleStartSummarize()}
-                style={{ marginTop: 'var(--space-2)' }}
-              >
-                ✨ Bắt đầu Tóm tắt bằng {aiProvider === 'ollama' ? 'Local AI' : 'Gemini AI'}
+              <button className="mm-btn mm-btn--lg mm-btn--primary" onClick={() => handleStartSummarize()}>
+                <IconZap /> Bắt đầu Tóm tắt bằng AI
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Summary Content ── */}
       {activeTab === 'summary' && summaryData && !isLoading && (
-        <div className="summary__sections">
-
-          {/* Export bar */}
+        <div className="summary__sections animate-fade-in">
           <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
               *Dữ liệu sinh từ AI, nên kiểm tra lại.
-              {summaryData.processing_metadata && (
-                <> &nbsp;|&nbsp; Model: <strong>{summaryData.processing_metadata.model_used}</strong></>
-              )}
             </span>
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportTxt}>📄 Xuất TXT</button>
-              <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={handleExportPdf}>🖨 In</button>
+              {!isEditing ? (
+                <>
+                  <button className="mm-btn mm-btn--sm mm-btn--primary" onClick={startEditing}><IconEdit/> Sửa</button>
+                  <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportTxt}><IconFileText/> Xuất TXT</button>
+                  <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => window.print()}>In</button>
+                </>
+              ) : (
+                <>
+                  <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={cancelEditing}><IconCancel/> Hủy</button>
+                  <button className="mm-btn mm-btn--sm mm-btn--success" onClick={saveEdits} disabled={isSavingEdit}>
+                    {isSavingEdit ? 'Đang lưu...' : <><IconSave/> Lưu thay đổi</>}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {/* ── 1. Summary + Key Topics ── */}
+          {/* 1. Tóm tắt */}
           <div className="summary__section summary__section--blue">
             <div className="summary__section-header">
-              <span className="summary__section-icon">📝</span>
+              <span className="summary__section-icon" style={{ color: 'var(--google-blue)' }}><IconFileText /></span>
               <span className="summary__section-title" style={{ color: 'var(--google-blue)' }}>Tóm Tắt Tự Động</span>
             </div>
-            <p className="summary__text">{summaryData.summary_text}</p>
+            {isEditing ? (
+              <textarea 
+                value={editFormData.summary_text}
+                onChange={e => setEditFormData({...editFormData, summary_text: e.target.value})}
+                style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid var(--primary-300)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
+              />
+            ) : (
+              <p className="summary__text">{summaryData.summary_text}</p>
+            )}
             <KeyTopicTags topics={keyTopics} />
           </div>
 
-          {/* ── 2. Decisions (structured cards) ── */}
+          {/* 2. Quyết định */}
           <div className="summary__section summary__section--green">
             <div className="summary__section-header">
-              <span className="summary__section-icon">🎯</span>
-              <span className="summary__section-title" style={{ color: 'var(--google-green)' }}>
-                Các Quyết Định Được Chốt
-                {decisions.length > 0 && (
-                  <span style={{
-                    marginLeft: 'var(--space-2)', fontSize: 'var(--text-xs)', fontWeight: 700,
-                    padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                    background: 'rgba(52,168,83,0.15)', color: 'var(--google-green)',
-                  }}>
-                    {decisions.length}
-                  </span>
-                )}
-              </span>
+              <span className="summary__section-icon" style={{ color: 'var(--google-green)' }}><IconTarget /></span>
+              <span className="summary__section-title" style={{ color: 'var(--google-green)' }}>Các Quyết Định Được Chốt</span>
             </div>
             <div style={{ marginTop: 'var(--space-3)' }}>
-              {decisions.length > 0
-                ? decisions.map((d, i) => <DecisionCard key={i} decision={d} index={i} />)
-                : <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-3)', textAlign: 'center' }}>
-                    Không có quyết định nào đủ tiêu chí để ghi nhận.
-                  </p>
-              }
+              {isEditing ? (
+                <div>
+                  {(editFormData.decisions || []).map((d, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input 
+                        value={typeof d === 'string' ? d : d.action} 
+                        onChange={e => {
+                          const newD = [...editFormData.decisions];
+                          if (typeof newD[i] === 'string') newD[i] = e.target.value;
+                          else newD[i].action = e.target.value;
+                          setEditFormData({...editFormData, decisions: newD});
+                        }}
+                        style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-default)' }}
+                      />
+                      <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={() => {
+                        const newD = [...editFormData.decisions];
+                        newD.splice(i, 1);
+                        setEditFormData({...editFormData, decisions: newD});
+                      }}><IconTrash/></button>
+                    </div>
+                  ))}
+                  <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={() => {
+                    setEditFormData({...editFormData, decisions: [...(editFormData.decisions || []), "Quyết định mới"]});
+                  }}><IconPlus/> Thêm quyết định</button>
+                </div>
+              ) : (
+                decisions.length > 0 ? decisions.map((d, i) => <DecisionCard key={i} decision={d} index={i} />)
+                : <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-3)' }}>Không có quyết định nào.</p>
+              )}
             </div>
           </div>
 
-          {/* ── 3. Action Items ── */}
+          {/* 3. Action Items */}
           <div className="summary__section summary__section--red">
             <div className="summary__section-header">
-              <span className="summary__section-icon">⚡</span>
-              <span className="summary__section-title" style={{ color: 'var(--google-red)' }}>
-                Action Items
-                {actionItems.length > 0 && (
-                  <span style={{
-                    marginLeft: 'var(--space-2)', fontSize: 'var(--text-xs)', fontWeight: 700,
-                    padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                    background: 'rgba(234,67,53,0.12)', color: 'var(--google-red)',
-                  }}>
-                    {completedCount}/{actionItems.length}
-                  </span>
-                )}
-              </span>
+              <span className="summary__section-icon" style={{ color: 'var(--google-red)' }}><IconZap /></span>
+              <span className="summary__section-title" style={{ color: 'var(--google-red)' }}>Action Items</span>
             </div>
-            <div className="summary__action-list">
-              {actionItems.length > 0 ? actionItems.map((item, index) => {
-                const uid = item.id || index;
-                return (
-                  <label key={uid} className={`summary__action-item ${item.completed ? 'summary__action-item--done' : ''}`}>
-                    <input
-                      type="checkbox"
-                      className="summary__action-check"
-                      checked={!!item.completed}
-                      onChange={() => toggleActionItem(uid)}
-                    />
-                    <div className="summary__action-info" style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
-                        <span className="summary__action-name">{item.task_name}</span>
-                        <PriorityBadge priority={item.priority} />
-                      </div>
-                      <div className="summary__action-meta">
-                        <span>👤 {item.assignee || 'Trống'}</span>
-                        <span>📅 {item.deadline || 'Trống'}</span>
+            
+            {isEditing ? (
+              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {(editFormData.action_items || []).map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '8px', background: 'var(--bg-body)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-default)', alignItems: 'center' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <input placeholder="Tên công việc" value={item.task_name} onChange={e => {
+                        const newA = [...editFormData.action_items]; newA[i].task_name = e.target.value; setEditFormData({...editFormData, action_items: newA});
+                      }} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input placeholder="Người phụ trách" value={item.assignee || ''} onChange={e => {
+                          const newA = [...editFormData.action_items]; newA[i].assignee = e.target.value; setEditFormData({...editFormData, action_items: newA});
+                        }} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
+                        <input placeholder="Deadline" value={item.deadline || ''} onChange={e => {
+                          const newA = [...editFormData.action_items]; newA[i].deadline = e.target.value; setEditFormData({...editFormData, action_items: newA});
+                        }} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
                       </div>
                     </div>
-                  </label>
-                );
-              }) : (
-                <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', textAlign: 'center', padding: 'var(--space-4)' }}>
-                  Không có công việc cụ thể nào được trích xuất.
-                </p>
-              )}
-            </div>
-
-            {/* Progress bar for action items */}
-            {actionItems.length > 0 && (
+                    <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={() => {
+                      const newA = [...editFormData.action_items]; newA.splice(i, 1); setEditFormData({...editFormData, action_items: newA});
+                    }}><IconTrash/></button>
+                  </div>
+                ))}
+                <button className="mm-btn mm-btn--sm mm-btn--secondary" style={{ alignSelf: 'flex-start' }} onClick={() => {
+                  setEditFormData({...editFormData, action_items: [...(editFormData.action_items || []), { task_name: 'Công việc mới', assignee: '', deadline: '', completed: false, priority: 'medium' }]});
+                }}><IconPlus/> Thêm công việc</button>
+              </div>
+            ) : (
+              <div className="summary__action-list" style={{ marginTop: '16px' }}>
+                {actionItems.length > 0 ? actionItems.map((item, index) => {
+                  const uid = item.id || index;
+                  return (
+                    <label key={uid} className={`summary__action-item ${item.completed ? 'summary__action-item--done' : ''}`} style={{ transition: 'all 0.3s ease' }}>
+                      <input
+                        type="checkbox"
+                        className="summary__action-check"
+                        checked={!!item.completed}
+                        onChange={() => toggleActionItem(uid)}
+                      />
+                      <div className="summary__action-info" style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
+                          <span className="summary__action-name" style={{ textDecoration: item.completed ? 'line-through' : 'none' }}>{item.task_name}</span>
+                          <PriorityBadge priority={item.priority} />
+                        </div>
+                        <div className="summary__action-meta">
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUser/> {item.assignee || 'Trống'}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar/> {item.deadline || 'Trống'}</span>
+                        </div>
+                      </div>
+                    </label>
+                  );
+                }) : (
+                  <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-4)' }}>Không có công việc nào.</p>
+                )}
+              </div>
+            )}
+            
+            {!isEditing && actionItems.length > 0 && (
               <div style={{ marginTop: 'var(--space-4)', padding: '0 var(--space-1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-1)' }}>
                   <span>Tiến độ hoàn thành</span>

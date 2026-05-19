@@ -17,6 +17,13 @@ class SummaryRequest(BaseModel):
     ai_provider: Optional[str] = "ollama"  # "ollama" hoặc "gemini"
 
 
+class SummaryUpdateRequest(BaseModel):
+    summary_text: Optional[str] = None
+    decisions: Optional[list] = None
+    action_items: Optional[list] = None
+
+
+
 @router.post("/summarize")
 def summarize_meeting(
     request: SummaryRequest,
@@ -134,3 +141,96 @@ def get_meeting_summary(
         "summary": summary_data,
         "transcript": meeting.transcript.full_text if meeting.transcript else None
     }
+
+
+@router.put("/{meeting_id}/summary")
+def update_meeting_summary(
+    meeting_id: int,
+    request: SummaryUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cập nhật chỉnh sửa tóm tắt, quyết định, action items
+    """
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.user_id == current_user.id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Không có quyền truy cập.")
+        
+    summary = db.query(Summary).filter(Summary.meeting_id == meeting_id).first()
+    if not summary:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tóm tắt.")
+        
+    if request.summary_text is not None:
+        summary.summary_text = request.summary_text
+    if request.decisions is not None:
+        summary.decisions = request.decisions
+    if request.action_items is not None:
+        summary.action_items = request.action_items
+        
+    db.commit()
+    return {"message": "Đã cập nhật thành công"}
+
+
+@router.get("/action-items")
+def get_all_action_items(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Lấy danh sách tất cả Action Items từ mọi cuộc họp của người dùng.
+    """
+    meetings = db.query(Meeting).filter(Meeting.user_id == current_user.id).all()
+    meeting_ids = [m.id for m in meetings]
+    
+    if not meeting_ids:
+        return {"action_items": []}
+        
+    summaries = db.query(Summary).filter(Summary.meeting_id.in_(meeting_ids)).all()
+    
+    all_action_items = []
+    for s in summaries:
+        if s.action_items:
+            m = next((m for m in meetings if m.id == s.meeting_id), None)
+            for idx, item in enumerate(s.action_items):
+                # Ensure the item is a dictionary
+                if isinstance(item, dict):
+                    all_action_items.append({
+                        "meeting_id": s.meeting_id,
+                        "meeting_title": m.title if m else "Không xác định",
+                        "item_index": idx,
+                        **item
+                    })
+                
+    return {"action_items": all_action_items}
+
+
+@router.put("/{meeting_id}/action-items/{item_index}/status")
+def update_action_item_status(
+    meeting_id: int,
+    item_index: int,
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cập nhật trạng thái hoàn thành của một Action Item từ Kanban.
+    """
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.user_id == current_user.id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Không có quyền.")
+        
+    summary = db.query(Summary).filter(Summary.meeting_id == meeting_id).first()
+    if not summary or not summary.action_items:
+        raise HTTPException(status_code=404, detail="Không tìm thấy.")
+    
+    action_items = list(summary.action_items)
+    if item_index < 0 or item_index >= len(action_items):
+        raise HTTPException(status_code=404, detail="Index không hợp lệ.")
+        
+    action_items[item_index]["completed"] = request.get("completed", False)
+    
+    summary.action_items = action_items
+    db.commit()
+    
+    return {"message": "Đã cập nhật trạng thái công việc."}

@@ -6,19 +6,36 @@ export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('meetingmind-theme');
     if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'system';
   });
 
+  const [actualTheme, setActualTheme] = useState('light');
+
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    const updateTheme = () => {
+      let active = theme;
+      if (theme === 'system') {
+        active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      setActualTheme(active);
+      document.documentElement.setAttribute('data-theme', active);
+    };
+
+    updateTheme();
     localStorage.setItem('meetingmind-theme', theme);
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = () => updateTheme();
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
+    }
   }, [theme]);
 
-  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
-  const isDark = theme === 'dark';
+  const isDark = actualTheme === 'dark';
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+    <ThemeContext.Provider value={{ theme, setTheme, isDark }}>
       {children}
     </ThemeContext.Provider>
   );

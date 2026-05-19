@@ -30,12 +30,34 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)
+    avatar_url = Column(String(512), nullable=True)
     is_active = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Quan hệ 1-N: 1 User có nhiều Meeting
     meetings = relationship("Meeting", back_populates="owner", cascade="all, delete-orphan")
+    # Quan hệ 1-1: User và Cấu hình của họ
+    settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+
+# ==============================================================================
+# BẢNG USER SETTINGS — Cấu hình cá nhân
+# ==============================================================================
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    
+    # Cấu hình AI mặc định
+    default_language = Column(String(50), default="vi")
+    custom_prompt = Column(Text, nullable=True)
+    
+    # Giao diện
+    theme = Column(String(20), default="system")
+
+    user = relationship("User", back_populates="settings")
 
 
 # ==============================================================================

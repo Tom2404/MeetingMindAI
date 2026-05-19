@@ -138,7 +138,8 @@ def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
             "id": new_user.id,
             "username": new_user.username,
             "email": new_user.email,
-            "full_name": new_user.full_name
+            "full_name": new_user.full_name,
+            "avatar_url": None
         }
     }
 
@@ -168,7 +169,8 @@ def login_user(request: LoginRequest, db: Session = Depends(get_db)):
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "full_name": user.full_name
+            "full_name": user.full_name,
+            "avatar_url": user.avatar_url
         }
     }
 
@@ -184,6 +186,129 @@ def get_me(current_user: User = Depends(get_current_user)):
             "username": current_user.username,
             "email": current_user.email,
             "full_name": current_user.full_name,
+            "avatar_url": current_user.avatar_url,
             "created_at": str(current_user.created_at)
         }
     }
+
+
+# ==============================================================================
+# PROFILE & SETTINGS
+# ==============================================================================
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if v and ("@" not in v or "." not in v):
+            raise ValueError("Email không hợp lệ")
+        return v.strip().lower() if v else None
+
+
+class SettingsUpdateRequest(BaseModel):
+    default_language: Optional[str] = None
+    custom_prompt: Optional[str] = None
+    theme: Optional[str] = None
+
+
+class PasswordUpdateRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError("Mật khẩu mới phải có ít nhất 6 ký tự")
+        return v
+
+
+@router.put("/profile")
+def update_profile(request: ProfileUpdateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if request.email and request.email != current_user.email:
+        # Check email exists
+        existing_email = db.query(User).filter(User.email == request.email).first()
+        if existing_email:
+            raise HTTPException(status_code=409, detail="Email đã được sử dụng.")
+        current_user.email = request.email
+        
+    if request.full_name is not None:
+        current_user.full_name = request.full_name
+        
+    db.commit()
+    return {"message": "Cập nhật hồ sơ thành công", "full_name": current_user.full_name, "email": current_user.email, "avatar_url": current_user.avatar_url}
+
+
+import os
+import shutil
+from fastapi import UploadFile, File
+
+@router.post("/avatar")
+def upload_avatar(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Đảm bảo thư mục uploads/avatars tồn tại
+    avatar_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "avatars")
+    os.makedirs(avatar_dir, exist_ok=True)
+
+    # Lưu file
+    file_ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    filename = f"avatar_{current_user.id}.{file_ext}"
+    file_path = os.path.join(avatar_dir, filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Public URL
+    avatar_url = f"http://127.0.0.1:8000/uploads/avatars/{filename}"
+    current_user.avatar_url = avatar_url
+    db.commit()
+
+    return {"message": "Cập nhật ảnh đại diện thành công", "avatar_url": avatar_url}
+
+
+@router.put("/password")
+def change_password(request: PasswordUpdateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not verify_password(request.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng.")
+    
+    current_user.password_hash = hash_password(request.new_password)
+    db.commit()
+    return {"message": "Đổi mật khẩu thành công!"}
+
+
+@router.get("/settings")
+def get_settings(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from ..models import UserSettings
+    settings = current_user.settings
+    if not settings:
+        settings = UserSettings(user_id=current_user.id)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+        
+    return {
+        "default_language": settings.default_language,
+        "custom_prompt": settings.custom_prompt,
+        "theme": settings.theme
+    }
+
+@router.put("/settings")
+def update_settings(request: SettingsUpdateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from ..models import UserSettings
+    settings = current_user.settings
+    if not settings:
+        settings = UserSettings(user_id=current_user.id)
+        db.add(settings)
+    
+    if request.default_language is not None:
+        settings.default_language = request.default_language
+    if request.custom_prompt is not None:
+        settings.custom_prompt = request.custom_prompt
+    if request.theme is not None:
+        settings.theme = request.theme
+        
+    db.commit()
+    return {"message": "Cập nhật cấu hình thành công"}
+
