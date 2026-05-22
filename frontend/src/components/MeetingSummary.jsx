@@ -16,9 +16,9 @@ const IconTag = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none
 
 // ─── Priority badge config ───────────────────────────────────────────────────
 const PRIORITY_CONFIG = {
-  high:   { label: 'Cao',    color: '#ea4335', bg: 'rgba(234,67,53,0.10)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
-  medium: { label: 'Vừa',   color: '#fbbc04', bg: 'rgba(251,188,4,0.12)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
-  low:    { label: 'Thấp',  color: '#34a853', bg: 'rgba(52,168,83,0.10)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
+  high:   { label: 'Cao',    color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.08)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
+  medium: { label: 'Vừa',   color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
+  low:    { label: 'Thấp',  color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -84,12 +84,12 @@ const KeyTopicTags = ({ topics = [] }) => {
 };
 
 const SPEAKER_COLORS = [
-  { main: '#1a73e8', bg: 'rgba(26, 115, 232, 0.06)', border: 'rgba(26, 115, 232, 0.15)' },
-  { main: '#ea4335', bg: 'rgba(234, 67, 53, 0.06)', border: 'rgba(234, 67, 53, 0.15)' },
-  { main: '#fbbc04', bg: 'rgba(251, 188, 4, 0.08)', border: 'rgba(251, 188, 4, 0.2)' },
-  { main: '#34a853', bg: 'rgba(52, 168, 83, 0.06)', border: 'rgba(52, 168, 83, 0.15)' },
-  { main: '#a142f4', bg: 'rgba(161, 66, 244, 0.06)', border: 'rgba(161, 66, 244, 0.15)' },
-  { main: '#00acc1', bg: 'rgba(0, 172, 193, 0.06)', border: 'rgba(0, 172, 193, 0.15)' },
+  { main: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.06)', border: 'rgba(139, 92, 246, 0.15)' },
+  { main: '#d946ef', bg: 'rgba(217, 70, 239, 0.06)', border: 'rgba(217, 70, 239, 0.15)' },
+  { main: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.06)', border: 'rgba(14, 165, 233, 0.15)' },
+  { main: '#10b981', bg: 'rgba(16, 185, 129, 0.06)', border: 'rgba(16, 185, 129, 0.15)' },
+  { main: '#f43f5e', bg: 'rgba(244, 63, 94, 0.06)', border: 'rgba(244, 63, 94, 0.15)' },
+  { main: '#f59e0b', bg: 'rgba(245, 158, 11, 0.06)', border: 'rgba(245, 158, 11, 0.15)' },
 ];
 
 const getSpeakerStyle = (speakerName, allSpeakers) => {
@@ -717,7 +717,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                             />
                             <div className="summary__action-info" style={{ flex: 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
-                                <span className="summary__action-name" style={{ textDecoration: item.completed ? 'line-through' : 'none' }}>{item.task_name}</span>
+                                <span className="summary__action-name">{item.task_name}</span>
                                 <PriorityBadge priority={item.priority} />
                               </div>
                               <div className="summary__action-meta">

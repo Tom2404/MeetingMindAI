@@ -10,6 +10,7 @@ const IconCheckSquare = () => <svg width="20" height="20" viewBox="0 0 24 24" fi
 const IconAlertCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
 const IconTrendingUp = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>;
 const IconUsers = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
+const IconRefresh = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>;
 
 const AnalyticsPage = () => {
   const { token } = useAuth();
@@ -28,7 +29,6 @@ const AnalyticsPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Fetch meetings and action-items in parallel
       const [meetingsRes, tasksRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/v1/meetings/history`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -55,21 +55,17 @@ const AnalyticsPage = () => {
     }
   };
 
-  // === CALCULATIONS ===
   const totalMeetings = meetings.length;
   
-  // Total meeting time
   const totalSeconds = meetings.reduce((acc, m) => acc + (m.duration_seconds || 0), 0);
   const totalHours = Math.floor(totalSeconds / 3600);
   const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
   
-  // Tasks calculations
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(t => t.completed).length;
   const pendingTasks = totalTasks - completedTasks;
   const taskCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Task distribution by Priority
   const priorityStats = {
     high: { count: 0, completed: 0 },
     medium: { count: 0, completed: 0 },
@@ -88,7 +84,6 @@ const AnalyticsPage = () => {
     }
   });
 
-  // Team workload distribution (Group by Assignee)
   const assigneeMap = {};
   tasks.forEach(t => {
     const name = t.assignee || 'Chưa phân công';
@@ -105,9 +100,8 @@ const AnalyticsPage = () => {
     completed: assigneeMap[name].completed,
     pending: assigneeMap[name].total - assigneeMap[name].completed,
     rate: Math.round((assigneeMap[name].completed / assigneeMap[name].total) * 100)
-  })).sort((a, b) => b.total - a.total); // Sort by total workload
+  })).sort((a, b) => b.total - a.total);
 
-  // Meetings group by month/day (for recent activity visual bars)
   const maxDuration = Math.max(...meetings.map(m => m.duration_seconds || 1), 60);
 
   const formatDuration = (sec) => {
@@ -163,7 +157,6 @@ const AnalyticsPage = () => {
         gap: 'var(--space-2)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span style={{ fontSize: '32px' }}>📊</span>
           <h1 style={{ margin: 0, fontSize: 'var(--text-2xl)', fontWeight: 800, fontFamily: 'var(--font-display)', letterSpacing: '-0.5px' }}>Báo cáo & Thống kê Hiệu suất</h1>
         </div>
         <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)', maxWidth: '650px', lineHeight: 1.5 }}>
@@ -173,13 +166,12 @@ const AnalyticsPage = () => {
 
       {totalMeetings === 0 ? (
         <div className="mm-empty glass-panel" style={{ padding: '80px 24px', textAlign: 'center' }}>
-          <span style={{ fontSize: '48px', marginBottom: '16px', display: 'block' }}>📈</span>
           <div className="mm-empty__title" style={{ fontSize: '18px', fontWeight: 700 }}>Chưa có dữ liệu phân tích</div>
           <div className="mm-empty__desc" style={{ maxWidth: '400px', margin: '8px auto var(--space-4)' }}>
             Hãy thực hiện ghi âm hoặc tải lên file âm thanh cuộc họp đầu tiên để AI phân tích và tạo báo cáo hiệu suất.
           </div>
           <button className="mm-btn mm-btn--primary" onClick={() => navigate('/')}>
-            + Bắt đầu cuộc họp mới
+            Tạo cuộc họp mới
           </button>
         </div>
       ) : (
@@ -203,7 +195,7 @@ const AnalyticsPage = () => {
               boxShadow: 'var(--shadow-xs)'
             }}>
               <div style={{
-                background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.15) 0%, rgba(66, 133, 244, 0.05) 100%)',
+                background: 'var(--google-blue-bg)',
                 color: 'var(--google-blue)',
                 width: '48px',
                 height: '48px',
@@ -233,8 +225,8 @@ const AnalyticsPage = () => {
               boxShadow: 'var(--shadow-xs)'
             }}>
               <div style={{
-                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%)',
-                color: 'var(--primary-500)',
+                background: 'var(--google-blue-bg)',
+                color: 'var(--google-blue)',
                 width: '48px',
                 height: '48px',
                 borderRadius: '14px',
@@ -265,8 +257,8 @@ const AnalyticsPage = () => {
               boxShadow: 'var(--shadow-xs)'
             }}>
               <div style={{
-                background: `linear-gradient(135deg, rgba(15, 157, 88, 0.15) 0%, rgba(15, 157, 88, 0.05) 100%)`,
-                color: 'var(--google-green)',
+                background: 'var(--google-blue-bg)',
+                color: 'var(--google-blue)',
                 width: '48px',
                 height: '48px',
                 borderRadius: '14px',
@@ -298,8 +290,8 @@ const AnalyticsPage = () => {
               boxShadow: 'var(--shadow-xs)'
             }}>
               <div style={{
-                background: 'linear-gradient(135deg, rgba(219, 68, 85, 0.15) 0%, rgba(219, 68, 85, 0.05) 100%)',
-                color: 'var(--google-red)',
+                background: 'var(--google-blue-bg)',
+                color: 'var(--google-blue)',
                 width: '48px',
                 height: '48px',
                 borderRadius: '14px',
@@ -316,10 +308,10 @@ const AnalyticsPage = () => {
             </div>
           </div>
 
-          {/* Detailed Charts Grid (2 columns on Desktop) */}
+          {/* Detailed Charts Grid */}
           <div className="grid-2" style={{ alignItems: 'stretch' }}>
             
-            {/* Cột trái: Phân tích tiến độ công việc (Notion Cards style) */}
+            {/* Cột trái: Phân tích tiến độ công việc */}
             <div className="glass-panel" style={{
               background: 'var(--bg-surface)',
               border: '1px solid var(--border-default)',
@@ -343,7 +335,7 @@ const AnalyticsPage = () => {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                   
-                  {/* Progress Bar lớn */}
+                  {/* Progress Bar */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: '8px' }}>
                       <span style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>Tỉ lệ hoàn thành chung</span>
@@ -360,7 +352,7 @@ const AnalyticsPage = () => {
                       <div style={{
                         width: `${taskCompletionRate}%`,
                         height: '100%',
-                        background: 'linear-gradient(90deg, var(--google-green) 0%, #34a853 100%)',
+                        background: 'linear-gradient(90deg, var(--google-green) 0%, #10b981 100%)',
                         borderRadius: 'var(--radius-full)',
                         transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
                       }} />
@@ -425,7 +417,7 @@ const AnalyticsPage = () => {
               gap: 'var(--space-5)'
             }}>
               <div style={{ borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <IconUsers style={{ color: 'var(--primary-500)' }} />
+                <IconUsers style={{ color: 'var(--google-blue)' }} />
                 <h2 style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 800, color: 'var(--text-primary)' }}>Phân Bổ Task Theo Thành Viên</h2>
               </div>
 
@@ -456,7 +448,7 @@ const AnalyticsPage = () => {
                           </div>
                           <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
                             {member.name}
-                            {index === 0 && <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, background: 'color-mix(in srgb, var(--primary-500) 10%, transparent)', color: 'var(--primary-500)', padding: '1px 6px', borderRadius: '4px' }}>Tập trung</span>}
+                            {index === 0 && <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, background: 'var(--google-blue-bg)', color: 'var(--google-blue)', padding: '1px 6px', borderRadius: '4px' }}>Tập trung</span>}
                           </span>
                         </div>
                         <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-secondary)' }}>
@@ -481,7 +473,7 @@ const AnalyticsPage = () => {
 
           </div>
 
-          {/* Lịch sử hoạt động cuộc họp (Notion Document style) */}
+          {/* Lịch sử hoạt động cuộc họp */}
           <div className="glass-panel" style={{
             background: 'var(--bg-surface)',
             border: '1px solid var(--border-default)',
@@ -491,7 +483,7 @@ const AnalyticsPage = () => {
           }}>
             <div style={{ borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-3)', marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <span style={{ fontSize: '20px' }}>🕒</span>
+                <IconClock />
                 <h2 style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 800, color: 'var(--text-primary)' }}>Thời Lượng Hoạt Động Gần Đây</h2>
               </div>
               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>Đơn vị: phút</span>
@@ -500,7 +492,6 @@ const AnalyticsPage = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               {meetings.slice(0, 5).map((m) => {
                 const durationMinutes = Math.round((m.duration_seconds || 0) / 60) || 1;
-                // Calculate percentage relative to maximum duration for bar rendering
                 const percent = Math.min(100, Math.round(((m.duration_seconds || 1) / maxDuration) * 100));
                 const formattedDate = new Date(m.created_at).toLocaleDateString('vi-VN', {
                   day: '2-digit',
@@ -518,7 +509,7 @@ const AnalyticsPage = () => {
                         style={{
                           fontWeight: 700, 
                           fontSize: 'var(--text-sm)', 
-                          color: 'var(--primary-500)', 
+                          color: 'var(--google-blue)', 
                           cursor: 'pointer',
                           display: 'block',
                           marginBottom: '2px'
@@ -534,7 +525,7 @@ const AnalyticsPage = () => {
                         <div style={{
                           width: `${percent}%`,
                           height: '100%',
-                          background: 'linear-gradient(90deg, rgba(66, 133, 244, 0.8) 0%, rgba(66, 133, 244, 0.4) 100%)',
+                          background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.8) 0%, rgba(139, 92, 246, 0.4) 100%)',
                           borderRadius: '5px',
                           transition: 'width 0.6s ease'
                         }} />
@@ -580,7 +571,7 @@ const AnalyticsPage = () => {
           className="mm-btn mm-btn--secondary"
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: 'var(--radius-xl)' }}
         >
-          🔄 Làm mới dữ liệu
+          <IconRefresh /> Làm mới dữ liệu
         </button>
       </div>
 

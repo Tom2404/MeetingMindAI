@@ -1,54 +1,53 @@
 /* ═══════════════════════════════════════════════════════
-   MeetingMind AI — Design Tokens (Google Meet + Azota)
-   Material Design 3 Expressive Color System
+   MeetingMind AI — Design Tokens (Premium Indigo Palette)
    ═══════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  /* === Brand — Google Blue === */
-  --brand-gradient: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%);
-  --brand-gradient-hover: linear-gradient(135deg, #1557b0 0%, #174ea6 100%);
-  --brand-glow: 0 0 24px rgba(26, 115, 232, 0.25);
+  /* === Brand — Premium Cosmic Purple === */
+  --brand-gradient: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  --brand-gradient-hover: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  --brand-glow: 0 0 24px rgba(139, 92, 246, 0.2);
 
-  /* === Google Meet Palette === */
-  --google-blue: #1a73e8;
-  --google-blue-light: #8ab4f8;
-  --google-blue-bg: #e8f0fe;
-  --google-red: #ea4335;
-  --google-red-light: #f28b82;
-  --google-red-bg: #fce8e6;
-  --google-green: #34a853;
-  --google-green-light: #81c995;
-  --google-green-bg: #e6f4ea;
-  --google-yellow: #fbbc04;
-  --google-yellow-light: #fdd663;
-  --google-yellow-bg: #fef7e0;
+  /* === Core Color Palette === */
+  --google-blue: #8b5cf6;
+  --google-blue-light: #c4b5fd;
+  --google-blue-bg: rgba(139, 92, 246, 0.08);
+  --google-red: #f43f5e;
+  --google-red-light: #fda4af;
+  --google-red-bg: #fff1f2;
+  --google-green: #10b981;
+  --google-green-light: #6ee7b7;
+  --google-green-bg: #ecfdf5;
+  --google-yellow: #f59e0b;
+  --google-yellow-light: #fde68a;
+  --google-yellow-bg: #fffbeb;
 
-  /* === Primary Palette (Google Blue) === */
-  --primary-50: #e8f0fe;
-  --primary-100: #d2e3fc;
-  --primary-200: #aecbfa;
-  --primary-300: #8ab4f8;
-  --primary-400: #669df6;
-  --primary-500: #1a73e8;
-  --primary-600: #1557b0;
-  --primary-700: #174ea6;
+  /* === Primary Palette (Purple) === */
+  --primary-50: rgba(139, 92, 246, 0.06);
+  --primary-100: rgba(139, 92, 246, 0.12);
+  --primary-200: rgba(139, 92, 246, 0.24);
+  --primary-300: #c4b5fd;
+  --primary-400: #a78bfa;
+  --primary-500: #8b5cf6;
+  --primary-600: #7c3aed;
+  --primary-700: #6d28d9;
 
   /* === Semantic Colors === */
-  --success-50: #e6f4ea;  --success-100: #ceead6;
-  --success-500: #34a853; --success-600: #1e8e3e; --success-700: #188038;
+  --success-50: #ecfdf5;  --success-100: #d1fae5;
+  --success-500: #10b981; --success-600: #059669; --success-700: #047857;
 
-  --danger-50: #fce8e6;   --danger-100: #fad2cf;
-  --danger-500: #ea4335;  --danger-600: #d93025;  --danger-700: #c5221f;
+  --danger-50: #fff1f2;   --danger-100: #ffe4e6;
+  --danger-500: #f43f5e;  --danger-600: #e11d48;  --danger-700: #be123c;
 
-  --warning-50: #fef7e0;  --warning-100: #feefc3;
-  --warning-500: #fbbc04; --warning-600: #f9ab00; --warning-700: #e37400;
+  --warning-50: #fffbeb;  --warning-100: #fef3c7;
+  --warning-500: #f59e0b; --warning-600: #d97706; --warning-700: #b45309;
 
-  --info-50: #e8f0fe;     --info-100: #d2e3fc;
-  --info-500: #4285f4;    --info-600: #1a73e8;
+  --info-50: rgba(139, 92, 246, 0.06);     --info-100: rgba(139, 92, 246, 0.12);
+  --info-500: #8b5cf6;    --info-600: #7c3aed;
 
-  /* === Surface — Light (Google Meet White) === */
+  /* === Surface — Light === */
   --bg-body: #f8f9fa;
   --bg-surface: #ffffff;
   --bg-surface-hover: #f1f3f4;
@@ -62,33 +61,33 @@
   --bg-sidebar-hover: rgba(0, 0, 0, 0.04);
   --bg-sidebar-active: rgba(0, 0, 0, 0.08);
   --text-sidebar: #4a5568;
-  --text-sidebar-active: #1a73e8;
+  --text-sidebar-active: #5f57ff;
   --border-sidebar: #e2e8f0;
 
-  /* === Text — Google === */
+  /* === Text === */
   --text-primary: #202124;
   --text-secondary: #5f6368;
   --text-tertiary: #80868b;
   --text-on-primary: #ffffff;
-  --text-link: #1a73e8;
+  --text-link: #5f57ff;
 
-  /* === Borders — Google === */
+  /* === Borders === */
   --border-default: #dadce0;
   --border-hover: #bdc1c6;
-  --border-focus: #1a73e8;
+  --border-focus: #5f57ff;
 
-  /* === Shadows — Google Material === */
+  /* === Shadows === */
   --shadow-xs: 0 1px 2px rgba(60,64,67,0.1);
-  --shadow-sm: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
-  --shadow-md: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
-  --shadow-lg: 0 2px 6px 2px rgba(60,64,67,0.15), 0 1px 2px 0 rgba(60,64,67,0.3);
-  --shadow-xl: 0 4px 8px 3px rgba(60,64,67,0.15), 0 1px 3px rgba(60,64,67,0.3);
-  --shadow-focus: 0 0 0 2px #ffffff, 0 0 0 4px #1a73e8;
-  --shadow-card-hover: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+  --shadow-sm: 0 1px 2px 0 rgba(60,64,67,0.2), 0 1px 3px 1px rgba(60,64,67,0.1);
+  --shadow-md: 0 4px 6px -1px rgba(95,87,255,0.08), 0 2px 4px -1px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(95,87,255,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(95,87,255,0.15), 0 10px 10px -5px rgba(0,0,0,0.04);
+  --shadow-focus: 0 0 0 2px #ffffff, 0 0 0 4px #8b5cf6;
+  --shadow-card-hover: 0 10px 20px -5px rgba(139,92,246,0.15), 0 4px 6px -2px rgba(0,0,0,0.05);
 
-  /* === Typography — Google Sans + Inter === */
-  --font-sans: 'Inter', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Google Sans', 'Inter', -apple-system, sans-serif;
+  /* === Typography — Plus Jakarta Sans + Inter === */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
   --font-mono: 'Roboto Mono', 'Cascadia Code', monospace;
 
   --text-xs: 0.75rem;   --text-sm: 0.875rem;
@@ -102,12 +101,12 @@
   --space-8: 2rem;    --space-10: 2.5rem; --space-12: 3rem;
   --space-16: 4rem;
 
-  /* === Border Radius — M3 Expressive (rounder) === */
+  /* === Border Radius === */
   --radius-sm: 8px;    --radius-md: 12px;
   --radius-lg: 16px;   --radius-xl: 24px;
   --radius-2xl: 28px;  --radius-full: 9999px;
 
-  /* === Transitions — M3 Expressive Spring === */
+  /* === Transitions === */
   --ease-m3: cubic-bezier(0.2, 0, 0, 1);
   --ease-m3-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -122,43 +121,46 @@
   --content-max-width: 1100px;
 }
 
-/* ─── Dark Mode — Google Meet Dark ─── */
+/* ─── Dark Mode — Deep Navy ─── */
 [data-theme="dark"] {
-  --bg-body: #111113;
-  --bg-surface: #1f1f23;
-  --bg-surface-hover: #28282d;
-  --bg-surface-active: #313136;
-  --bg-elevated: #28282d;
-  --bg-input: #28282d;
-  --bg-input-focus: #313136;
-  --bg-sidebar: #16161a;
+  /* === Brand Dark Mode Override === */
+  --brand-gradient: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 50%, #8b5cf6 100%);
+  
+  --bg-body: #090d16;
+  --bg-surface: #111622;
+  --bg-surface-hover: #192030;
+  --bg-surface-active: #212a3e;
+  --bg-elevated: #151c2c;
+  --bg-input: #192030;
+  --bg-input-focus: #212a3e;
+  --bg-sidebar: #0d111b;
   --bg-sidebar-hover: rgba(255, 255, 255, 0.04);
   --bg-sidebar-active: rgba(255, 255, 255, 0.08);
   --text-sidebar: #9aa0a6;
-  --text-sidebar-active: #8ab4f8;
-  --border-sidebar: #242428;
+  --text-sidebar-active: #c4b5fd;
+  --border-sidebar: #1d2433;
 
   --text-primary: #e8eaed;
   --text-secondary: #9aa0a6;
   --text-tertiary: #80868b;
-  --text-link: #8ab4f8;
+  --text-link: #c4b5fd;
 
-  --border-default: #3c4043;
-  --border-hover: #5f6368;
-  --border-focus: #8ab4f8;
+  --border-default: #222b3d;
+  --border-hover: #384661;
+  --border-focus: #c4b5fd;
 
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.6);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.7), 0 1px 2px rgba(0,0,0,0.5);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4);
   --shadow-lg: 0 10px 15px rgba(0,0,0,0.5), 0 4px 6px rgba(0,0,0,0.4);
   --shadow-xl: 0 20px 25px rgba(0,0,0,0.6), 0 8px 10px rgba(0,0,0,0.5);
-  --shadow-focus: 0 0 0 2px #1f1f23, 0 0 0 4px #8ab4f8;
-  --shadow-card-hover: 0 4px 8px 3px rgba(0,0,0,0.4);
+  --shadow-focus: 0 0 0 2px #111622, 0 0 0 4px #c4b5fd;
+  --shadow-card-hover: 0 8px 16px rgba(139,92,246,0.25);
 
-  --primary-50: rgba(138,180,248,0.1);
-  --primary-100: rgba(138,180,248,0.16);
-  --success-50: rgba(129,201,149,0.1);
-  --danger-50: rgba(242,139,130,0.1);
-  --warning-50: rgba(253,214,99,0.1);
-  --info-50: rgba(138,180,248,0.1);
+  --primary-50: rgba(139, 92, 246, 0.1);
+  --primary-100: rgba(139, 92, 246, 0.16);
+  --success-50: rgba(16, 185, 129, 0.1);
+  --danger-50: rgba(244, 63, 94, 0.1);
+  --warning-50: rgba(245, 158, 11, 0.1);
+  --info-50: rgba(139, 92, 246, 0.1);
 }

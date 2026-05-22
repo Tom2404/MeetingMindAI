@@ -3,6 +3,14 @@ import API_BASE_URL from '../config';
 
 const API_URL = `${API_BASE_URL}/api/v1/health`;
 
+const IconAlertTriangle = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--danger-500)' }}>
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
 /**
  * AIStatusBar — Thanh kiểm tra trạng thái AI tự động.
  * Hiển thị trạng thái của Ollama LLM và Faster-Whisper STT.
@@ -72,7 +80,7 @@ const AIStatusBar = () => {
           {lastChecked && <span style={{ fontSize:'var(--text-xs)', color:'var(--text-tertiary)' }}>{formatTime(lastChecked)}</span>}
           <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={(e) => { e.stopPropagation(); checkAI(); }}
             disabled={isChecking} style={{ fontSize:'var(--text-xs)' }}>
-            {isChecking ? '...' : '🔄 Kiểm tra'}
+            {isChecking ? '...' : 'Kiểm tra'}
           </button>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
             style={{ color:'var(--text-tertiary)', transform:isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition:'transform 0.2s' }}>
@@ -86,7 +94,7 @@ const AIStatusBar = () => {
         <div className="ai-status__detail">
           {status._network_error && (
             <div className="mm-alert mm-alert--danger">
-              <span className="mm-alert__icon">🔌</span>
+              <span className="mm-alert__icon"><IconAlertTriangle /></span>
               <div className="mm-alert__content">
                 <span className="mm-alert__title">Lỗi kết nối Backend</span>
                 <span className="mm-alert__message">{status._error_message}</span>
@@ -94,17 +102,17 @@ const AIStatusBar = () => {
             </div>
           )}
 
-          <ServiceRow icon="🤖" name="AI Tóm tắt (Ollama / Llama)" ok={llmOk}
+          <ServiceRow name="AI Tóm tắt (Ollama / Llama)" ok={llmOk}
             warning={status.llm?.ok && !status.llm?.model_found}
             message={status.llm?.message} models={status.llm?.models} />
 
-          <ServiceRow icon="🎙️" name="AI Bóc băng (Faster-Whisper)" ok={sttOk}
+          <ServiceRow name="AI Bóc băng (Faster-Whisper)" ok={sttOk}
             warning={status.stt?.ok && !status.stt?.model_loaded}
             message={status.stt?.message} />
 
           {!status.overall_ok && !status._network_error && (
             <div className="ai-status__guide">
-              <strong>💡 Hướng dẫn khắc phục:</strong>
+              <strong>Hướng dẫn khắc phục:</strong>
               <ul>
                 {!status.llm?.ok && <li>Khởi động Ollama: <code>ollama serve</code></li>}
                 {status.llm?.ok && !status.llm?.model_found && <li>Cài model: <code>ollama pull llama3.2</code></li>}
@@ -118,12 +126,11 @@ const AIStatusBar = () => {
   );
 };
 
-const ServiceRow = ({ icon, name, ok, warning, message, models }) => {
+const ServiceRow = ({ name, ok, warning, message, models }) => {
   const variant = ok ? 'success' : warning ? 'warning' : 'danger';
   const label = ok ? 'Hoạt động' : warning ? 'Cảnh báo' : 'Lỗi';
   return (
     <div className="ai-status__row">
-      <span style={{ fontSize:18, lineHeight:1, marginTop:1 }}>{icon}</span>
       <div style={{ flex:1 }}>
         <div style={{ display:'flex', alignItems:'center', gap:'var(--space-2)', marginBottom:3 }}>
           <span style={{ fontSize:'var(--text-sm)', fontWeight:600, color:'var(--text-primary)' }}>{name}</span>

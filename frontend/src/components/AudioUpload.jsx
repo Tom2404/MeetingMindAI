@@ -1,6 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react';
 import API_BASE_URL from '../config';
 
+// ─── SVG Icons ───
+const IconUploadCloud = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary-500)', marginBottom: '8px' }}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+);
+
+const IconAlertTriangle = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const IconCheckCircle = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
+const IconFile = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', verticalAlign: 'middle' }}>
+    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+    <polyline points="13 2 13 9 20 9" />
+  </svg>
+);
+
 const AudioUpload = ({ onCompleteData, token }) => {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
@@ -96,7 +127,7 @@ const AudioUpload = ({ onCompleteData, token }) => {
         onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
         onClick={() => document.getElementById('file-upload').click()}
       >
-        <div className="upload-zone__icon">📂</div>
+        <div className="upload-zone__icon"><IconUploadCloud /></div>
         <p className="upload-zone__title">
           {isDragging ? 'Thả file vào đây' : 'Kéo thả file âm thanh vào đây'}
         </p>
@@ -107,7 +138,7 @@ const AudioUpload = ({ onCompleteData, token }) => {
       {/* Error */}
       {error && (
         <div className="mm-alert mm-alert--danger">
-          <span className="mm-alert__icon">⚠️</span>
+          <span className="mm-alert__icon"><IconAlertTriangle /></span>
           <span className="mm-alert__message">{error}</span>
         </div>
       )}
@@ -115,7 +146,7 @@ const AudioUpload = ({ onCompleteData, token }) => {
       {/* Success */}
       {uploadStatus === 'success' && (
         <div className="mm-alert mm-alert--success">
-          <span className="mm-alert__icon">✅</span>
+          <span className="mm-alert__icon"><IconCheckCircle /></span>
           <span className="mm-alert__message">Whisper bóc băng xong! Văn bản đã được tự động đẩy sang AI để tóm tắt.</span>
         </div>
       )}
@@ -137,7 +168,7 @@ const AudioUpload = ({ onCompleteData, token }) => {
       {file && uploadStatus !== 'success' && uploadStatus !== 'transcribing' && (
         <div className="file-info">
           <div className="file-info__row">
-            <span className="file-info__name">📄 {file.name}</span>
+            <span className="file-info__name"><IconFile />{file.name}</span>
             <span className="file-info__size">{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
           </div>
           {isUploading ? (

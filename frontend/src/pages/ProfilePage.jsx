@@ -167,7 +167,7 @@ const ProfilePage = () => {
       )}
 
       <div className="mm-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-surface)' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-default)', backgroundColor: 'var(--bg-surface)' }}>
           <button 
             style={{ flex: 1, padding: '16px', fontWeight: 600, border: 'none', background: 'none', borderBottom: activeTab === 'account' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'account' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}
             onClick={() => setActiveTab('account')}
@@ -306,9 +306,9 @@ const ProfilePage = () => {
                   onChange={e => setSettings({...settings, theme: e.target.value})}
                   className="mm-input"
                 >
-                  <option value="light">☀️ Giao diện Sáng (Light Mode)</option>
-                  <option value="dark">🌙 Giao diện Tối (Dark Mode)</option>
-                  <option value="system">🖥️ Tự động theo Hệ thống (System)</option>
+                  <option value="light">Giao diện Sáng (Light Mode)</option>
+                  <option value="dark">Giao diện Tối (Dark Mode)</option>
+                  <option value="system">Tự động theo Hệ thống (System)</option>
                 </select>
               </div>
 

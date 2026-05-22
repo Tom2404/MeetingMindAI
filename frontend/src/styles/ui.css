@@ -56,8 +56,8 @@
 
 /* ─── Card — Professional Container ─── */
 .mm-card {
-  background: #ffffff;
-  border: 1px solid #edf2f7;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg); padding: var(--space-8);
   box-shadow: 0 4px 20px rgba(0, 90, 240, 0.03);
   transition: all var(--duration-normal) var(--ease-m3);
@@ -69,6 +69,15 @@
   background: var(--google-blue); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 .mm-card { position:relative; overflow:hidden; }
+[data-theme="dark"] .mm-card,
+[data-theme="dark"] .summary__section,
+[data-theme="dark"] .file-info,
+[data-theme="dark"] .upload-zone {
+  background: var(--bg-surface) !important;
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-default) !important;
+  box-shadow: var(--shadow-sm);
+}
 
 .mm-card__header { 
   display: flex; 
@@ -76,14 +85,14 @@
   justify-content: space-between;
   margin-bottom: var(--space-6); 
   padding-bottom: var(--space-4); 
-  border-bottom: 1px solid #f1f5f9; 
+  border-bottom: 1px solid var(--border-default); 
 }
 .mm-card__icon { display: none; } /* Hide icons in card headers */
 
 .mm-card__title { 
   font-size: var(--text-lg); 
   font-weight: 700; 
-  color: #1a202c; 
+  color: var(--text-primary); 
   font-family: var(--font-display);
 }
 

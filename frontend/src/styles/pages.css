@@ -129,11 +129,33 @@
   border-radius:var(--radius-md); cursor:pointer; transition:all var(--duration-fast) var(--ease-m3);
 }
 .summary__action-item:hover { border-color:var(--google-blue-light); box-shadow:var(--shadow-sm); }
-.summary__action-item--done { opacity:0.55; }
-.summary__action-item--done .summary__action-name { text-decoration:line-through; }
+.summary__action-item--done { opacity:0.75; }
 .summary__action-check { width:20px; height:20px; margin-right:var(--space-4); cursor:pointer; accent-color:var(--google-blue); }
 .summary__action-info { flex:1; }
-.summary__action-name { font-weight:600; font-size:var(--text-sm); color:var(--text-primary); }
+.summary__action-name {
+  font-weight:600;
+  font-size:var(--text-sm);
+  color:var(--text-primary);
+  position:relative;
+  display:inline-block;
+  transition:color 0.3s var(--ease-out);
+}
+.summary__action-item--done .summary__action-name {
+  color:var(--text-tertiary);
+}
+.summary__action-name::after {
+  content:'';
+  position:absolute;
+  left:0;
+  top:50%;
+  width:0;
+  height:1.5px;
+  background:var(--text-tertiary);
+  transition:width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.summary__action-item--done .summary__action-name::after {
+  width:100%;
+}
 .summary__action-meta { display:flex; gap:var(--space-4); font-size:var(--text-xs); color:var(--text-secondary); margin-top:var(--space-1); }
 
 /* ─── History — Google Meet History ─── */

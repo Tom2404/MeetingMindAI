@@ -3,13 +3,22 @@
    Primary Colors: White & Light Blue (#F0F7FF)
    ═══════════════════════════════════════════════════════ */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+.auth-page,
+.auth-page *,
+.auth-page input,
+.auth-page button,
+.auth-page label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
 .auth-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: #f0f7ff;
-  font-family: var(--font-sans);
   padding: var(--space-4);
 }
 
@@ -59,7 +68,7 @@
   font-weight: 800;
   color: #1a202c;
   margin-bottom: var(--space-6);
-  font-family: var(--font-display);
+  font-family: var(--font-sans) !important;
 }
 
 .text-highlight {
