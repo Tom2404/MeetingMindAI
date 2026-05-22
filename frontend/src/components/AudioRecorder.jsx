@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import API_BASE_URL from '../config';
 
 const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -30,7 +31,8 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
 
   const initWebSocket = () => {
     if (webSocketRef.current) return;
-    const ws = new WebSocket(`ws://127.0.0.1:8000/api/v1/meetings/${meetingId}/stream`);
+    const wsUrl = API_BASE_URL.replace(/^http/, 'ws');
+    const ws = new WebSocket(`${wsUrl}/api/v1/meetings/${meetingId}/stream`);
     ws.onopen = () => { console.log('WebSocket Connected!'); setSocketConnected(true); };
     ws.onmessage = (event) => { 
       if (event.data.startsWith("{")) {

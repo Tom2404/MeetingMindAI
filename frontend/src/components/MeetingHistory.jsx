@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-const API_BASE = 'http://127.0.0.1:8000/api/v1/meetings';
+import API_BASE_URL from '../config';
+
+const API_BASE = `${API_BASE_URL}/api/v1/meetings`;
 
 const MeetingHistory = ({ token, onViewSummary }) => {
   const [meetings, setMeetings] = useState([]);
@@ -22,10 +24,10 @@ const MeetingHistory = ({ token, onViewSummary }) => {
 
   const getStatusBadge = (status, hasSummary) => {
     const map = {
-      completed: { cls: hasSummary ? 'mm-badge--success' : 'mm-badge--info', text: hasSummary ? '✅ Đã tóm tắt' : '✅ Đã bóc băng' },
-      processing: { cls: 'mm-badge--warning', text: '⏳ Đang xử lý' },
-      recording: { cls: 'mm-badge--info', text: '🎙️ Đang ghi' },
-      failed: { cls: 'mm-badge--danger', text: '❌ Thất bại' }
+      completed: { cls: hasSummary ? 'mm-badge--success' : 'mm-badge--info', text: hasSummary ? 'Đã tóm tắt' : 'Đã bóc băng' },
+      processing: { cls: 'mm-badge--warning', text: 'Đang xử lý' },
+      recording: { cls: 'mm-badge--info', text: 'Đang ghi' },
+      failed: { cls: 'mm-badge--danger', text: 'Thất bại' }
     };
     const s = map[status] || map.processing;
     return <span className={`mm-badge ${s.cls}`}>{s.text}</span>;
@@ -59,7 +61,6 @@ const MeetingHistory = ({ token, onViewSummary }) => {
   if (meetings.length === 0) {
     return (
       <div className="mm-empty">
-        <div className="mm-empty__icon">📋</div>
         <div className="mm-empty__title">Chưa có cuộc họp nào được lưu</div>
         <div className="mm-empty__desc">Hãy tải lên file âm thanh hoặc ghi âm trực tuyến để bắt đầu.</div>
       </div>
@@ -70,7 +71,7 @@ const MeetingHistory = ({ token, onViewSummary }) => {
     <div>
       <div className="history__header">
         <span className="history__count">Tổng cộng: <strong>{meetings.length}</strong> cuộc họp</span>
-        <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={fetchHistory}>🔄 Làm mới</button>
+        <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={fetchHistory}>Làm mới</button>
       </div>
 
       <div className="history__list">
@@ -83,7 +84,7 @@ const MeetingHistory = ({ token, onViewSummary }) => {
           >
             <div style={{ flex:1 }}>
               <div className="history__item-title">{meeting.title || `Cuộc họp #${meeting.id}`}</div>
-              <div className="history__item-date">📅 {formatDate(meeting.created_at)}</div>
+              <div className="history__item-date">{formatDate(meeting.created_at)}</div>
             </div>
             <div className="history__item-right">
               {getStatusBadge(meeting.status, meeting.has_summary)}

@@ -13,6 +13,8 @@ import SystemStatusPage from './pages/SystemStatusPage';
 import ProfilePage from './pages/ProfilePage';
 import TasksPage from './pages/TasksPage';
 import AuthPage from './components/AuthPage';
+import TemplatesPage from './pages/TemplatesPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -72,6 +74,8 @@ const AppRoutes = () => {
         <Route path="status" element={<SystemStatusPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="templates" element={<TemplatesPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
       </Route>
     </Routes>
   );

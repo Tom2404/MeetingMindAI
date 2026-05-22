@@ -40,3 +40,5 @@ meetingmind.db
 *.sln
 *.sw?
 *.local
+
+uploads

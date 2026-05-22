@@ -6,6 +6,8 @@ import AudioUpload from '../components/AudioUpload';
 import AudioRecorder from '../components/AudioRecorder';
 import MeetingSummary from '../components/MeetingSummary';
 
+import API_BASE_URL from '../config';
+
 const MeetingRoomPage = () => {
   const { token } = useAuth();
   const { 
@@ -43,7 +45,7 @@ const MeetingRoomPage = () => {
         try {
             const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
-            const res = await fetch('http://127.0.0.1:8000/api/v1/meetings/save-transcript', {
+            const res = await fetch(`${API_BASE_URL}/api/v1/meetings/save-transcript`, {
                 method: 'POST', headers,
                 body: JSON.stringify({
                     title: meetingInfo?.meetingName || `Bản bóc băng Realtime ${new Date().toLocaleTimeString('vi-VN')}`,

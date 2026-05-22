@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMeeting } from '../contexts/MeetingContext';
 import MeetingSetup from '../components/MeetingSetup';
+import API_BASE_URL from '../config';
 
 const HomePage = () => {
   const { currentUser, token } = useAuth();
@@ -15,7 +16,7 @@ const HomePage = () => {
 
   useEffect(() => {
     // Fetch meetings for stats and recent list
-    fetch('http://127.0.0.1:8000/api/v1/meetings/history', {
+    fetch(`${API_BASE_URL}/api/v1/meetings/history`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.ok ? res.json() : null)

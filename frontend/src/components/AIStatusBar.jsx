@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import API_BASE_URL from '../config';
 
-const API_URL = 'http://127.0.0.1:8000/api/v1/health';
+const API_URL = `${API_BASE_URL}/api/v1/health`;
 
 /**
  * AIStatusBar — Thanh kiểm tra trạng thái AI tự động.

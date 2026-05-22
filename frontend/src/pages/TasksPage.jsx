@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import API_BASE_URL from '../config';
 
 const TasksPage = () => {
   const { token } = useAuth();
@@ -19,7 +20,7 @@ const TasksPage = () => {
   const fetchTasks = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/meetings/action-items', {
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/action-items`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Không thể tải dữ liệu công việc');
@@ -43,7 +44,7 @@ const TasksPage = () => {
     ));
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/meetings/${meetingId}/action-items/${itemIndex}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/${meetingId}/action-items/${itemIndex}/status`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',

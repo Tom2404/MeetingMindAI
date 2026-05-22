@@ -181,3 +181,53 @@
 .ai-status__guide code { background:rgba(251,188,4,0.15); padding:1px 5px; border-radius:4px; font-size:11px; font-family:var(--font-mono); }
 
 @media print { .no-print{display:none!important} body{background:#fff} .summary{box-shadow:none;border:none} }
+
+/* ─── Split-View Desktop Layout ─── */
+@media (min-width: 1024px) {
+  .summary {
+    max-width: 100% !important;
+  }
+  .summary-desktop-split {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: var(--space-6);
+    align-items: start;
+  }
+  .summary-split-left {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-4));
+    max-height: calc(100vh - var(--header-height) - var(--space-8));
+    display: flex;
+    flex-direction: column;
+  }
+  .summary-split-right {
+    max-height: calc(100vh - var(--header-height) - var(--space-8));
+    overflow-y: auto;
+    padding-right: var(--space-2);
+  }
+}
+@media (max-width: 1023px) {
+  .summary-desktop-split {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+}
+
+/* Custom responsive utility classes for Split-View */
+@media (min-width: 1024px) {
+  .mobile-only-tabs {
+    display: none !important;
+  }
+  .mobile-only-ai-selector {
+    display: none !important;
+  }
+}
+@media (max-width: 1023px) {
+  .summary-mobile-tab-inactive {
+    display: none !important;
+  }
+  .desktop-only-ai-selector {
+    display: none !important;
+  }
+}

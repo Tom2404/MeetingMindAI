@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -247,7 +247,7 @@ import shutil
 from fastapi import UploadFile, File
 
 @router.post("/avatar")
-def upload_avatar(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def upload_avatar(request: Request, file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Đảm bảo thư mục uploads/avatars tồn tại
     avatar_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "avatars")
     os.makedirs(avatar_dir, exist_ok=True)
@@ -260,8 +260,9 @@ def upload_avatar(file: UploadFile = File(...), current_user: User = Depends(get
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Public URL
-    avatar_url = f"http://127.0.0.1:8000/uploads/avatars/{filename}"
+    # Public URL động theo request domain/ip
+    base_url = str(request.base_url).rstrip("/")
+    avatar_url = f"{base_url}/uploads/avatars/{filename}"
     current_user.avatar_url = avatar_url
     db.commit()
 

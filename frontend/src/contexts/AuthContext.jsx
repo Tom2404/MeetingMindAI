@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components, react-hooks/exhaustive-deps, react-hooks/rules-of-hooks, react-hooks/set-state-in-effect */
 import React, { createContext, useState, useEffect, useContext } from 'react';
 
+import API_BASE_URL from '../config';
+
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
@@ -15,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     const savedUser = localStorage.getItem('user');
     
     if (savedToken && savedUser) {
-      fetch('http://127.0.0.1:8000/api/v1/auth/me', { 
+      fetch(`${API_BASE_URL}/api/v1/auth/me`, { 
         headers: { 'Authorization': `Bearer ${savedToken}` } 
       })
         .then(res => { 

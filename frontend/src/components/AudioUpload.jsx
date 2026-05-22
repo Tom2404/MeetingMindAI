@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import API_BASE_URL from '../config';
 
 const AudioUpload = ({ onCompleteData, token }) => {
   const [file, setFile] = useState(null);
@@ -42,7 +43,7 @@ const AudioUpload = ({ onCompleteData, token }) => {
       try {
         const headers = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`http://127.0.0.1:8000/api/v1/meetings/${meetingId}/transcript`, { headers });
+        const res = await fetch(`${API_BASE_URL}/api/v1/meetings/${meetingId}/transcript`, { headers });
         if (res.ok) {
           const data = await res.json();
           data.meeting_id = meetingId;
@@ -80,7 +81,7 @@ const AudioUpload = ({ onCompleteData, token }) => {
     });
     xhr.addEventListener('error', () => { setIsUploading(false); setError('Lỗi kết nối tới Server trong khi upload.'); });
     xhr.addEventListener('abort', () => { setIsUploading(false); setError('Đã hủy quá trình tải lên.'); setProgress(0); });
-    xhr.open('POST', 'http://127.0.0.1:8000/api/v1/meetings/upload');
+    xhr.open('POST', `${API_BASE_URL}/api/v1/meetings/upload`);
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.send(formData);
   };

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import '../styles/auth.css';
+import API_BASE_URL from '../config';
 
-const API_BASE = 'http://127.0.0.1:8000/api/v1/auth';
+const API_BASE = `${API_BASE_URL}/api/v1/auth`;
 
 const AuthPage = ({ onLoginSuccess }) => {
   const [isLoginMode, setIsLoginMode] = useState(true);

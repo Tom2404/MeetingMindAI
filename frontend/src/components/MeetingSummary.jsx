@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import API_BASE_URL from '../config';
 
 // ─── SVG Icons ───
 const IconEdit = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>;
@@ -217,7 +218,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     try {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/meetings/${mId}/summary`, { headers });
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/${mId}/summary`, { headers });
       if (!res.ok) throw new Error(`server:${res.status}`);
       const data = await res.json();
       setSummaryData(data.summary);
@@ -265,7 +266,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         ai_provider: overrideProvider || aiProvider
       };
 
-      const res = await fetch('http://127.0.0.1:8000/api/v1/meetings/summarize', {
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/summarize`, {
         method: 'POST', headers, body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -279,7 +280,10 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         return;
       }
       const responseData = await res.json();
-      setSummaryData(responseData.data);
+      setSummaryData({
+        ...responseData.data,
+        id: responseData.saved_id
+      });
       setActiveTab('summary');
       if (responseData.saved_id) setIsSaved(true);
     } catch (err) {
@@ -316,7 +320,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       
       const parsedMeetingId = parseInt(meetingId, 10);
       
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/meetings/${parsedMeetingId}/summary`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/${parsedMeetingId}/summary`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({
@@ -375,6 +379,83 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const keyTopics = summaryData?.key_topics || [];
   const completedCount = actionItems.filter(i => i.completed).length;
 
+  const renderAiSelector = () => {
+    return (
+      <div className="glass-panel desktop-only-full-width" style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        gap: 'var(--space-4)', 
+        padding: 'var(--space-5)',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-xl)',
+        boxShadow: 'var(--shadow-sm)',
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'center', marginBottom: 'var(--space-1)' }}>
+          <span style={{ fontWeight: 700, fontSize: 'var(--text-md)', color: 'var(--text-primary)' }}>Lựa chọn Công cụ AI</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>Chọn mô hình phù hợp với nhu cầu và cấu hình máy của bạn</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', width: '100%' }}>
+          {/* Gemini Option */}
+          <div 
+            onClick={() => setAiProvider('gemini')}
+            style={{
+              padding: 'var(--space-4)',
+              background: aiProvider === 'gemini' ? 'var(--google-blue-bg)' : 'transparent',
+              border: aiProvider === 'gemini' ? '2.5px solid var(--google-blue)' : '1.5px solid var(--border-default)',
+              borderRadius: 'var(--radius-lg)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              transform: aiProvider === 'gemini' ? 'translateY(-2px)' : 'none',
+              boxShadow: aiProvider === 'gemini' ? '0 4px 12px rgba(26,115,232,0.12)' : 'none',
+            }}
+          >
+            <span style={{ fontWeight: 700, color: aiProvider === 'gemini' ? 'var(--google-blue)' : 'var(--text-primary)', fontSize: 'var(--text-sm)', letterSpacing: '0.2px' }}>Gemini Cloud API</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.4 }}>Xử lý siêu nhanh, chính xác tối đa, cần Internet</span>
+          </div>
+
+          {/* Ollama Option */}
+          <div 
+            onClick={() => setAiProvider('ollama')}
+            style={{
+              padding: 'var(--space-4)',
+              background: aiProvider === 'ollama' ? 'var(--google-blue-bg)' : 'transparent',
+              border: aiProvider === 'ollama' ? '2.5px solid var(--google-blue)' : '1.5px solid var(--border-default)',
+              borderRadius: 'var(--radius-lg)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              transform: aiProvider === 'ollama' ? 'translateY(-2px)' : 'none',
+              boxShadow: aiProvider === 'ollama' ? '0 4px 12px rgba(26,115,232,0.12)' : 'none',
+            }}
+          >
+            <span style={{ fontWeight: 700, color: aiProvider === 'ollama' ? 'var(--google-blue)' : 'var(--text-primary)', fontSize: 'var(--text-sm)', letterSpacing: '0.2px' }}>Ollama Local AI</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.4 }}>Bảo mật 100%, chạy offline (Qwen 2.5)</span>
+          </div>
+        </div>
+
+        <button 
+          className="mm-btn mm-btn--lg mm-btn--primary" 
+          onClick={() => handleStartSummarize()} 
+          style={{ width: '100%', justifyContent: 'center', marginTop: 'var(--space-2)' }}
+        >
+          <IconZap /> Bắt đầu Tóm tắt bằng {aiProvider === 'gemini' ? 'Gemini' : 'Ollama'}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="summary">
       <div className="summary__header no-print">
@@ -418,7 +499,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       )}
 
       {editableTranscript && !isLoading && !errorMsg && (
-        <div className="mm-tabs no-print" style={{ display: 'flex', gap: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', marginBottom: 'var(--space-5)' }}>
+        <div className="mm-tabs no-print mobile-only-tabs" style={{ display: 'flex', gap: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', marginBottom: 'var(--space-5)' }}>
           <button 
             style={{ 
               background: 'none', border: 'none', padding: 'var(--space-3) var(--space-2)', 
@@ -431,7 +512,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
           >
             Văn bản bóc băng
           </button>
-          {summaryData && (
+          {summaryData && summaryData.id && (
             <button 
               style={{ 
                 background: 'none', border: 'none', padding: 'var(--space-3) var(--space-2)', 
@@ -456,208 +537,225 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         </div>
       )}
 
-      {activeTab === 'transcript' && editableTranscript && !isLoading && !errorMsg && (
-        <div className="transcript-section animate-fade-in">
-          <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none' }}>
-            <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên.</span>
-            </div>
-            {transcriptChunks.length > 0 ? (
-              <div className="transcript-bubbles" style={{ 
-                display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', 
-                maxHeight: '600px', overflowY: 'auto', padding: 'var(--space-4)',
-                background: 'var(--bg-body)', borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-default)'
-              }}>
-                {transcriptChunks.map((chunk, i) => (
-                  <TranscriptBubble 
-                    key={i} chunk={chunk} index={i} 
-                    allSpeakers={[...new Set(transcriptChunks.map(c => c.speaker))]}
-                    onSpeakerNameChange={handleSpeakerNameChange}
-                  />
-                ))}
-              </div>
-            ) : (
-              <textarea
-                value={editableTranscript}
-                onChange={(e) => setEditableTranscript(e.target.value)}
-                style={{
-                  width: '100%', minHeight: '300px', padding: 'var(--space-3)',
-                  borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)',
-                  background: 'var(--bg-body)', color: 'var(--text-primary)',
-                  fontFamily: 'inherit', fontSize: 'var(--text-md)', lineHeight: 1.6, resize: 'vertical'
-                }}
-              />
-            )}
-          </div>
+      {editableTranscript && !isLoading && !errorMsg && (
+        <div className="summary-desktop-split">
           
-          {!summaryData && (
-            <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <button className="mm-btn mm-btn--lg mm-btn--primary" onClick={() => handleStartSummarize()}>
-                <IconZap /> Bắt đầu Tóm tắt bằng AI
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'summary' && summaryData && !isLoading && (
-        <div className="summary__sections animate-fade-in">
-          <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
-              *Dữ liệu sinh từ AI, nên kiểm tra lại.
-            </span>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              {!isEditing ? (
-                <>
-                  <button className="mm-btn mm-btn--sm mm-btn--primary" onClick={startEditing}><IconEdit/> Sửa</button>
-                  <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportTxt}><IconFileText/> Xuất TXT</button>
-                  <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => window.print()}>In</button>
-                </>
-              ) : (
-                <>
-                  <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={cancelEditing}><IconCancel/> Hủy</button>
-                  <button className="mm-btn mm-btn--sm mm-btn--success" onClick={saveEdits} disabled={isSavingEdit}>
-                    {isSavingEdit ? 'Đang lưu...' : <><IconSave/> Lưu thay đổi</>}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* 1. Tóm tắt */}
-          <div className="summary__section summary__section--blue">
-            <div className="summary__section-header">
-              <span className="summary__section-icon" style={{ color: 'var(--google-blue)' }}><IconFileText /></span>
-              <span className="summary__section-title" style={{ color: 'var(--google-blue)' }}>Tóm Tắt Tự Động</span>
-            </div>
-            {isEditing ? (
-              <textarea 
-                value={editFormData.summary_text}
-                onChange={e => setEditFormData({...editFormData, summary_text: e.target.value})}
-                style={{ width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid var(--primary-300)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
-              />
-            ) : (
-              <p className="summary__text">{summaryData.summary_text}</p>
-            )}
-            <KeyTopicTags topics={keyTopics} />
-          </div>
-
-          {/* 2. Quyết định */}
-          <div className="summary__section summary__section--green">
-            <div className="summary__section-header">
-              <span className="summary__section-icon" style={{ color: 'var(--google-green)' }}><IconTarget /></span>
-              <span className="summary__section-title" style={{ color: 'var(--google-green)' }}>Các Quyết Định Được Chốt</span>
-            </div>
-            <div style={{ marginTop: 'var(--space-3)' }}>
-              {isEditing ? (
-                <div>
-                  {(editFormData.decisions || []).map((d, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                      <input 
-                        value={typeof d === 'string' ? d : d.action} 
-                        onChange={e => {
-                          const newD = [...editFormData.decisions];
-                          if (typeof newD[i] === 'string') newD[i] = e.target.value;
-                          else newD[i].action = e.target.value;
-                          setEditFormData({...editFormData, decisions: newD});
-                        }}
-                        style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-default)' }}
-                      />
-                      <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={() => {
-                        const newD = [...editFormData.decisions];
-                        newD.splice(i, 1);
-                        setEditFormData({...editFormData, decisions: newD});
-                      }}><IconTrash/></button>
-                    </div>
+          {/* CỘT TRÁI: Transcript Section */}
+          <div className={`summary-split-left ${summaryData && summaryData.id && activeTab !== 'transcript' ? 'summary-mobile-tab-inactive' : ''}`}>
+            <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none', display: 'flex', flexDirection: 'column', height: '100%', margin: 0 }}>
+              <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên.</span>
+              </div>
+              {transcriptChunks.length > 0 ? (
+                <div className="transcript-bubbles" style={{ 
+                  display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', 
+                  flex: 1, overflowY: 'auto', padding: 'var(--space-4)',
+                  background: 'var(--bg-body)', borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--border-default)',
+                  maxHeight: 'calc(100vh - var(--header-height) - 180px)',
+                  boxSizing: 'border-box'
+                }}>
+                  {transcriptChunks.map((chunk, i) => (
+                    <TranscriptBubble 
+                      key={i} chunk={chunk} index={i} 
+                      allSpeakers={[...new Set(transcriptChunks.map(c => c.speaker))]}
+                      onSpeakerNameChange={handleSpeakerNameChange}
+                    />
                   ))}
-                  <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={() => {
-                    setEditFormData({...editFormData, decisions: [...(editFormData.decisions || []), "Quyết định mới"]});
-                  }}><IconPlus/> Thêm quyết định</button>
                 </div>
               ) : (
-                decisions.length > 0 ? decisions.map((d, i) => <DecisionCard key={i} decision={d} index={i} />)
-                : <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-3)' }}>Không có quyết định nào.</p>
+                <textarea
+                  value={editableTranscript}
+                  onChange={(e) => setEditableTranscript(e.target.value)}
+                  style={{
+                    width: '100%', flex: 1, minHeight: '350px', padding: 'var(--space-3)',
+                    borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)',
+                    background: 'var(--bg-body)', color: 'var(--text-primary)',
+                    fontFamily: 'inherit', fontSize: 'var(--text-md)', lineHeight: 1.6, resize: 'vertical'
+                  }}
+                />
               )}
             </div>
+
+            {/* Trên Mobile: Nếu chưa có summaryData, hiển thị AI selector ở cuối cột này */}
+            {(!summaryData || !summaryData.id) && (
+              <div className="mobile-only-ai-selector" style={{ marginTop: 'var(--space-4)' }}>
+                {renderAiSelector()}
+              </div>
+            )}
           </div>
 
-          {/* 3. Action Items */}
-          <div className="summary__section summary__section--red">
-            <div className="summary__section-header">
-              <span className="summary__section-icon" style={{ color: 'var(--google-red)' }}><IconZap /></span>
-              <span className="summary__section-title" style={{ color: 'var(--google-red)' }}>Action Items</span>
-            </div>
+          {/* CỘT PHẢI: Summary Section hoặc AI Selector */}
+          <div className={`summary-split-right ${summaryData && summaryData.id && activeTab !== 'summary' ? 'summary-mobile-tab-inactive' : ''}`}>
             
-            {isEditing ? (
-              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {(editFormData.action_items || []).map((item, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '8px', background: 'var(--bg-body)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-default)', alignItems: 'center' }}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <input placeholder="Tên công việc" value={item.task_name} onChange={e => {
-                        const newA = [...editFormData.action_items]; newA[i].task_name = e.target.value; setEditFormData({...editFormData, action_items: newA});
-                      }} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input placeholder="Người phụ trách" value={item.assignee || ''} onChange={e => {
-                          const newA = [...editFormData.action_items]; newA[i].assignee = e.target.value; setEditFormData({...editFormData, action_items: newA});
-                        }} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
-                        <input placeholder="Deadline" value={item.deadline || ''} onChange={e => {
-                          const newA = [...editFormData.action_items]; newA[i].deadline = e.target.value; setEditFormData({...editFormData, action_items: newA});
-                        }} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
+            {/* Trường hợp 1: Đã có summaryData */}
+            {summaryData && summaryData.id ? (
+              <div className="summary__sections animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)' }}>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+                    *Dữ liệu sinh từ AI, nên kiểm tra lại.
+                  </span>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                    {!isEditing ? (
+                      <>
+                        <button className="mm-btn mm-btn--sm mm-btn--primary" onClick={startEditing}><IconEdit/> Sửa</button>
+                        <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportTxt}><IconFileText/> Xuất TXT</button>
+                        <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => window.print()}>In</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={cancelEditing}><IconCancel/> Hủy</button>
+                        <button className="mm-btn mm-btn--sm mm-btn--success" onClick={saveEdits} disabled={isSavingEdit}>
+                          {isSavingEdit ? 'Đang lưu...' : <><IconSave/> Lưu thay đổi</>}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* 1. Tóm tắt */}
+                <div className="summary__section summary__section--blue">
+                  <div className="summary__section-header">
+                    <span className="summary__section-icon" style={{ color: 'var(--google-blue)' }}><IconFileText /></span>
+                    <span className="summary__section-title" style={{ color: 'var(--google-blue)' }}>Tóm Tắt Tự Động</span>
+                  </div>
+                  {isEditing ? (
+                    <textarea 
+                      value={editFormData.summary_text}
+                      onChange={e => setEditFormData({...editFormData, summary_text: e.target.value})}
+                      style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid var(--primary-300)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
+                    />
+                  ) : (
+                    <p className="summary__text" style={{ whiteSpace: 'pre-line' }}>{summaryData.summary_text}</p>
+                  )}
+                  <KeyTopicTags topics={keyTopics} />
+                </div>
+
+                {/* 2. Quyết định */}
+                <div className="summary__section summary__section--green">
+                  <div className="summary__section-header">
+                    <span className="summary__section-icon" style={{ color: 'var(--google-green)' }}><IconTarget /></span>
+                    <span className="summary__section-title" style={{ color: 'var(--google-green)' }}>Các Quyết Định Được Chốt</span>
+                  </div>
+                  <div style={{ marginTop: 'var(--space-2)' }}>
+                    {isEditing ? (
+                      <div>
+                        {(editFormData.decisions || []).map((d, i) => (
+                          <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                            <input 
+                              value={typeof d === 'string' ? d : d.action} 
+                              onChange={e => {
+                                const newD = [...editFormData.decisions];
+                                if (typeof newD[i] === 'string') newD[i] = e.target.value;
+                                else newD[i].action = e.target.value;
+                                setEditFormData({...editFormData, decisions: newD});
+                              }}
+                              style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-default)' }}
+                            />
+                            <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={() => {
+                              const newD = [...editFormData.decisions];
+                              newD.splice(i, 1);
+                              setEditFormData({...editFormData, decisions: newD});
+                            }}><IconTrash/></button>
+                          </div>
+                        ))}
+                        <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={() => {
+                          setEditFormData({...editFormData, decisions: [...(editFormData.decisions || []), "Quyết định mới"]});
+                        }}><IconPlus/> Thêm quyết định</button>
+                      </div>
+                    ) : (
+                      decisions.length > 0 ? decisions.map((d, i) => <DecisionCard key={i} decision={d} index={i} />)
+                      : <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-3)' }}>Không có quyết định nào.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Action Items */}
+                <div className="summary__section summary__section--red">
+                  <div className="summary__section-header">
+                    <span className="summary__section-icon" style={{ color: 'var(--google-red)' }}><IconZap /></span>
+                    <span className="summary__section-title" style={{ color: 'var(--google-red)' }}>Action Items</span>
+                  </div>
+                  
+                  {isEditing ? (
+                    <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {(editFormData.action_items || []).map((item, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '8px', background: 'var(--bg-body)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-default)', alignItems: 'center' }}>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <input placeholder="Tên công việc" value={item.task_name} onChange={e => {
+                              const newA = [...editFormData.action_items]; newA[i].task_name = e.target.value; setEditFormData({...editFormData, action_items: newA});
+                            }} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <input placeholder="Người phụ trách" value={item.assignee || ''} onChange={e => {
+                                const newA = [...editFormData.action_items]; newA[i].assignee = e.target.value; setEditFormData({...editFormData, action_items: newA});
+                              }} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
+                              <input placeholder="Deadline" value={item.deadline || ''} onChange={e => {
+                                const newA = [...editFormData.action_items]; newA[i].deadline = e.target.value; setEditFormData({...editFormData, action_items: newA});
+                              }} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border-default)' }} />
+                            </div>
+                          </div>
+                          <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={() => {
+                            const newA = [...editFormData.action_items]; newA.splice(i, 1); setEditFormData({...editFormData, action_items: newA});
+                          }}><IconTrash/></button>
+                        </div>
+                      ))}
+                      <button className="mm-btn mm-btn--sm mm-btn--secondary" style={{ alignSelf: 'flex-start' }} onClick={() => {
+                        setEditFormData({...editFormData, action_items: [...(editFormData.action_items || []), { task_name: 'Công việc mới', assignee: '', deadline: '', completed: false, priority: 'medium' }]});
+                      }}><IconPlus/> Thêm công việc</button>
+                    </div>
+                  ) : (
+                    <div className="summary__action-list" style={{ marginTop: '16px' }}>
+                      {actionItems.length > 0 ? actionItems.map((item, index) => {
+                        const uid = item.id || index;
+                        return (
+                          <label key={uid} className={`summary__action-item ${item.completed ? 'summary__action-item--done' : ''}`} style={{ transition: 'all 0.3s ease' }}>
+                            <input
+                              type="checkbox"
+                              className="summary__action-check"
+                              checked={!!item.completed}
+                              onChange={() => toggleActionItem(uid)}
+                            />
+                            <div className="summary__action-info" style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
+                                <span className="summary__action-name" style={{ textDecoration: item.completed ? 'line-through' : 'none' }}>{item.task_name}</span>
+                                <PriorityBadge priority={item.priority} />
+                              </div>
+                              <div className="summary__action-meta">
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUser/> {item.assignee || 'Trống'}</span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar/> {item.deadline || 'Trống'}</span>
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      }) : (
+                        <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-4)' }}>Không có công việc nào.</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {!isEditing && actionItems.length > 0 && (
+                    <div style={{ marginTop: 'var(--space-4)', padding: '0 var(--space-1)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-1)' }}>
+                        <span>Tiến độ hoàn thành</span>
+                        <span>{Math.round((completedCount / actionItems.length) * 100)}%</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-bar__fill progress-bar__fill--green"
+                          style={{ width: `${(completedCount / actionItems.length) * 100}%`, transition: 'width 0.4s ease' }} />
                       </div>
                     </div>
-                    <button className="mm-btn mm-btn--sm mm-btn--danger" onClick={() => {
-                      const newA = [...editFormData.action_items]; newA.splice(i, 1); setEditFormData({...editFormData, action_items: newA});
-                    }}><IconTrash/></button>
-                  </div>
-                ))}
-                <button className="mm-btn mm-btn--sm mm-btn--secondary" style={{ alignSelf: 'flex-start' }} onClick={() => {
-                  setEditFormData({...editFormData, action_items: [...(editFormData.action_items || []), { task_name: 'Công việc mới', assignee: '', deadline: '', completed: false, priority: 'medium' }]});
-                }}><IconPlus/> Thêm công việc</button>
+                  )}
+                </div>
               </div>
             ) : (
-              <div className="summary__action-list" style={{ marginTop: '16px' }}>
-                {actionItems.length > 0 ? actionItems.map((item, index) => {
-                  const uid = item.id || index;
-                  return (
-                    <label key={uid} className={`summary__action-item ${item.completed ? 'summary__action-item--done' : ''}`} style={{ transition: 'all 0.3s ease' }}>
-                      <input
-                        type="checkbox"
-                        className="summary__action-check"
-                        checked={!!item.completed}
-                        onChange={() => toggleActionItem(uid)}
-                      />
-                      <div className="summary__action-info" style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
-                          <span className="summary__action-name" style={{ textDecoration: item.completed ? 'line-through' : 'none' }}>{item.task_name}</span>
-                          <PriorityBadge priority={item.priority} />
-                        </div>
-                        <div className="summary__action-meta">
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUser/> {item.assignee || 'Trống'}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar/> {item.deadline || 'Trống'}</span>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                }) : (
-                  <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-4)' }}>Không có công việc nào.</p>
-                )}
+              /* Trường hợp 2: Chưa có summaryData -> Hiển thị AI Selector ở cột phải (trên Desktop) */
+              <div className="desktop-only-ai-selector">
+                {renderAiSelector()}
               </div>
             )}
-            
-            {!isEditing && actionItems.length > 0 && (
-              <div style={{ marginTop: 'var(--space-4)', padding: '0 var(--space-1)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-1)' }}>
-                  <span>Tiến độ hoàn thành</span>
-                  <span>{Math.round((completedCount / actionItems.length) * 100)}%</span>
-                </div>
-                <div className="progress-bar">
-                  <div className="progress-bar__fill progress-bar__fill--green"
-                    style={{ width: `${(completedCount / actionItems.length) * 100}%`, transition: 'width 0.4s ease' }} />
-                </div>
-              </div>
-            )}
+
           </div>
+
         </div>
       )}
     </div>

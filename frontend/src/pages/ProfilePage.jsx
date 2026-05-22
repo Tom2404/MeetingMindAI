@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import API_BASE_URL from '../config';
 
 const ProfilePage = () => {
   const { currentUser, token, login } = useAuth();
@@ -27,7 +28,7 @@ const ProfilePage = () => {
   });
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/v1/auth/settings', {
+    fetch(`${API_BASE_URL}/api/v1/auth/settings`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.ok ? res.json() : Promise.reject())
@@ -49,7 +50,7 @@ const ProfilePage = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/auth/profile', {
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -78,7 +79,7 @@ const ProfilePage = () => {
     formData.append('file', file);
     
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/auth/avatar', {
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/avatar`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -100,7 +101,7 @@ const ProfilePage = () => {
     if (newPassword.length < 6) return showMessage('Mật khẩu mới phải có ít nhất 6 ký tự', 'error');
     setIsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/auth/password', {
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/password`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ const ProfilePage = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/auth/settings', {
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/settings`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
