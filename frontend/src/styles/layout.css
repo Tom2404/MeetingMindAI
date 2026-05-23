@@ -14,7 +14,7 @@
   top: 0; left: 0; bottom: 0; z-index: 50;
   transition: transform var(--duration-slow) var(--ease-m3);
   overflow-y: auto; overflow-x: hidden;
-  border-right: 1px solid var(--border-sidebar, #e2e8f0);
+  border-right: 1px solid var(--border-sidebar);
 }
 
 .sidebar__brand { 
@@ -28,7 +28,7 @@
   width: 40px; height: 40px; border-radius: var(--radius-md);
   background: var(--google-blue); display: flex; align-items: center;
   justify-content: center; flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(26, 115, 232, 0.2);
+  box-shadow: 0 4px 12px rgba(35, 131, 226, 0.1);
 }
 
 .sidebar__brand-name { 
@@ -90,7 +90,7 @@
   flex-shrink: 0;
 }
 
-.sidebar__footer { padding: var(--space-4); border-top: 1px solid #edf2f7; margin-top: auto; }
+.sidebar__footer { padding: var(--space-4); border-top: 1px solid var(--border-sidebar); margin-top: auto; }
 
 .sidebar__user {
   display: flex; align-items: center; gap: var(--space-3);
@@ -98,16 +98,16 @@
   transition: background var(--duration-fast); cursor: pointer;
 }
 
-.sidebar__user:hover { background: #f8fafc; }
+.sidebar__user:hover { background: var(--bg-sidebar-hover); }
 
 .sidebar__avatar {
   width: 32px; height: 32px; border-radius: var(--radius-full);
-  background: #e1efff; display: flex; align-items: center;
-  justify-content: center; color: var(--google-blue); font-weight: 700; font-size: var(--text-sm); flex-shrink: 0;
+  background: var(--primary-100); display: flex; align-items: center;
+  justify-content: center; color: var(--primary-500); font-weight: 700; font-size: var(--text-sm); flex-shrink: 0;
 }
 
-.sidebar__user-name { font-size: var(--text-sm); font-weight: 700; color: #2d3748; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebar__user-role { font-size: 11px; color: #718096; margin-top: 1px; }
+.sidebar__user-name { font-size: var(--text-sm); font-weight: 700; color: var(--text-sidebar); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar__user-role { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
 
 /* ─── Main Area ─── */
 .main-area { flex:1; margin-left:var(--sidebar-width); display:flex; flex-direction:column; min-height:100vh; }

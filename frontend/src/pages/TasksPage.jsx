@@ -67,7 +67,7 @@ const TasksPage = () => {
     if (statusFilter === 'completed' && !t.completed) return false;
     
     // 2. Lọc theo chuỗi tìm kiếm (không phân biệt hoa thường)
-    if (searchQuery.strip && searchQuery.strip().length > 0 || searchQuery.length > 0) {
+    if (searchQuery && searchQuery.trim().length > 0) {
       const query = searchQuery.toLowerCase().trim();
       const matchesName = t.task_name?.toLowerCase().includes(query);
       const matchesAssignee = t.assignee?.toLowerCase().includes(query);

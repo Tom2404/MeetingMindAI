@@ -84,7 +84,7 @@ const KeyTopicTags = ({ topics = [] }) => {
 };
 
 const SPEAKER_COLORS = [
-  { main: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.06)', border: 'rgba(139, 92, 246, 0.15)' },
+  { main: '#2383E2', bg: 'rgba(35, 131, 226, 0.06)', border: 'rgba(35, 131, 226, 0.15)' },
   { main: '#d946ef', bg: 'rgba(217, 70, 239, 0.06)', border: 'rgba(217, 70, 239, 0.15)' },
   { main: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.06)', border: 'rgba(14, 165, 233, 0.15)' },
   { main: '#10b981', bg: 'rgba(16, 185, 129, 0.06)', border: 'rgba(16, 185, 129, 0.15)' },

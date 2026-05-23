@@ -352,7 +352,7 @@ const AnalyticsPage = () => {
                       <div style={{
                         width: `${taskCompletionRate}%`,
                         height: '100%',
-                        background: 'linear-gradient(90deg, var(--google-green) 0%, #10b981 100%)',
+                        background: 'linear-gradient(90deg, var(--google-green) 0%, var(--google-green-light) 100%)',
                         borderRadius: 'var(--radius-full)',
                         transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
                       }} />
@@ -525,7 +525,7 @@ const AnalyticsPage = () => {
                         <div style={{
                           width: `${percent}%`,
                           height: '100%',
-                          background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.8) 0%, rgba(139, 92, 246, 0.4) 100%)',
+                          background: 'linear-gradient(90deg, var(--primary-500) 0%, var(--primary-300) 100%)',
                           borderRadius: '5px',
                           transition: 'width 0.6s ease'
                         }} />

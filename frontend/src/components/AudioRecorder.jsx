@@ -87,9 +87,9 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
       analyser.getByteTimeDomainData(dataArray);
       canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
       const gradient = canvasCtx.createLinearGradient(0, 0, canvas.width, 0);
-      gradient.addColorStop(0, '#8b5cf6');
-      gradient.addColorStop(0.5, '#c4b5fd');
-      gradient.addColorStop(1, '#8b5cf6');
+      gradient.addColorStop(0, '#2383E2');
+      gradient.addColorStop(0.5, '#B6D4F3');
+      gradient.addColorStop(1, '#2383E2');
       canvasCtx.lineWidth = 3;
       canvasCtx.strokeStyle = gradient;
       canvasCtx.lineCap = 'round';
