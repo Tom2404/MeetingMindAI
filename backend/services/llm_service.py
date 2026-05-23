@@ -158,7 +158,13 @@ def _normalize_decisions(decisions: list) -> list:
 # MAIN FUNCTION — với retry logic
 # ==============================================================================
 
-def generate_meeting_summary(transcript_text: str, max_retries: int = 2, provider: str = "ollama") -> dict:
+def generate_meeting_summary(
+    transcript_text: str,
+    max_retries: int = 2,
+    provider: str = "ollama",
+    custom_prompt: str = None,
+    meeting_title: str = None
+) -> dict:
     """
     Phân tích transcript cuộc họp. Hỗ trợ Local (Ollama) và Cloud (Gemini).
     Trả về dict chuẩn hoá với: summary_text, key_topics, decisions, action_items, metadata.
@@ -167,6 +173,8 @@ def generate_meeting_summary(transcript_text: str, max_retries: int = 2, provide
         transcript_text: Toàn văn bản bóc băng.
         max_retries: Số lần thử lại khi parse JSON thất bại (default 2).
         provider: "ollama" hoặc "gemini".
+        custom_prompt: Chỉ thị tóm tắt riêng từ người dùng (nếu có).
+        meeting_title: Tiêu đề cuộc họp (nếu có) để làm giàu ngữ cảnh.
 
     Raises:
         RuntimeError: Khi offline hoặc JSON không hợp lệ.
@@ -175,17 +183,29 @@ def generate_meeting_summary(transcript_text: str, max_retries: int = 2, provide
         raise ValueError("Transcript quá ngắn để phân tích.")
 
     if provider == "gemini":
-        return _generate_with_gemini(transcript_text, max_retries)
+        return _generate_with_gemini(transcript_text, max_retries, custom_prompt, meeting_title)
     else:
-        return _generate_with_ollama(transcript_text, max_retries)
+        return _generate_with_ollama(transcript_text, max_retries, custom_prompt, meeting_title)
 
-def _generate_with_gemini(transcript_text: str, max_retries: int) -> dict:
+
+def _generate_with_gemini(transcript_text: str, max_retries: int, custom_prompt: str = None, meeting_title: str = None) -> dict:
     if not GEMINI_API_KEY:
         raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
-    # Gộp System Prompt và User Prompt thành một nội dung duy nhất cho bản v1
-    full_prompt = f"{SYSTEM_PROMPT}\n\nMeeting transcript:\n{transcript_text}"
+    
+    # Thiết lập System Prompt và ghép thêm chỉ thị custom nếu có
+    system_prompt = SYSTEM_PROMPT
+    if custom_prompt and len(custom_prompt.strip()) > 0:
+        system_prompt += f"\n\n### USER'S ADDITIONAL CUSTOM INSTRUCTIONS (YOU MUST STRICTLY FOLLOW THESE):\n{custom_prompt}\n"
+
+    # Xây dựng nội dung đầu vào kèm tiêu đề cuộc họp
+    input_text = ""
+    if meeting_title and len(meeting_title.strip()) > 0:
+        input_text += f"Meeting Title: {meeting_title}\n\n"
+    input_text += f"Meeting transcript:\n{transcript_text}"
+
+    full_prompt = f"{system_prompt}\n\n{input_text}"
     
     payload = {
         "contents": [{
@@ -193,7 +213,7 @@ def _generate_with_gemini(transcript_text: str, max_retries: int) -> dict:
         }],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 2048
+            "maxOutputTokens": 8192
         }
     }
 
@@ -241,12 +261,22 @@ def _generate_with_gemini(transcript_text: str, max_retries: int) -> dict:
             print(f"[LLM Error] Gemini attempt {attempt+1}: {str(e)}")
             raise
 
-def _generate_with_ollama(transcript_text: str, max_retries: int) -> dict:
-    user_prompt = f"Meeting transcript:\n{transcript_text}"
+
+def _generate_with_ollama(transcript_text: str, max_retries: int, custom_prompt: str = None, meeting_title: str = None) -> dict:
+    # Thiết lập System Prompt và ghép thêm chỉ thị custom nếu có
+    system_prompt = SYSTEM_PROMPT
+    if custom_prompt and len(custom_prompt.strip()) > 0:
+        system_prompt += f"\n\n### USER'S ADDITIONAL CUSTOM INSTRUCTIONS (YOU MUST STRICTLY FOLLOW THESE):\n{custom_prompt}\n"
+
+    # Xây dựng nội dung đầu vào kèm tiêu đề cuộc họp
+    user_prompt = ""
+    if meeting_title and len(meeting_title.strip()) > 0:
+        user_prompt += f"Meeting Title: {meeting_title}\n\n"
+    user_prompt += f"Meeting transcript:\n{transcript_text}"
 
     payload = {
         "model": OLLAMA_MODEL,
-        "system": SYSTEM_PROMPT,
+        "system": system_prompt,
         "prompt": user_prompt,
         "stream": False,
         "format": "json",

@@ -293,13 +293,78 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     } finally { setIsLoading(false); }
   };
 
-  const toggleActionItem = (uid) => {
+  const toggleActionItem = async (uid) => {
     if (!summaryData) return;
+    const oldSummaryData = { ...summaryData };
     const updated = summaryData.action_items.map((item, i) =>
       (item.id || i) === uid ? { ...item, completed: !item.completed } : item
     );
+    
+    // Cập nhật trạng thái React trước để có phản hồi UI nhanh (UX)
     setSummaryData({ ...summaryData, action_items: updated });
-    // In real app, we should also call the backend to update status here if needed
+    
+    // Đồng bộ với Backend
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const parsedMeetingId = parseInt(meetingId, 10);
+      if (isNaN(parsedMeetingId)) return;
+      
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/${parsedMeetingId}/summary`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          action_items: updated
+        })
+      });
+      
+      if (!res.ok) throw new Error('Cập nhật trạng thái công việc thất bại');
+      setIsSaved(true);
+    } catch (err) {
+      console.error("Lỗi khi lưu trạng thái task:", err);
+      // Hoàn tác lại trạng thái UI nếu lưu thất bại
+      setSummaryData(oldSummaryData);
+      alert("Không thể lưu trạng thái công việc. Vui lòng kiểm tra kết nối.");
+    }
+  };
+
+  const deleteActionItem = async (uid) => {
+    if (!summaryData) return;
+    
+    // Xác nhận trước khi xóa (UI/UX)
+    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này không?")) return;
+    
+    const oldSummaryData = { ...summaryData };
+    const updated = summaryData.action_items.filter((item, i) => (item.id || i) !== uid);
+    
+    // Cập nhật trạng thái React trước
+    setSummaryData({ ...summaryData, action_items: updated });
+    
+    // Đồng bộ với Backend
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const parsedMeetingId = parseInt(meetingId, 10);
+      if (isNaN(parsedMeetingId)) return;
+      
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/${parsedMeetingId}/summary`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          action_items: updated
+        })
+      });
+      
+      if (!res.ok) throw new Error('Xóa công việc thất bại');
+      setIsSaved(true);
+    } catch (err) {
+      console.error("Lỗi khi xóa task:", err);
+      // Hoàn tác lại trạng thái UI nếu lưu thất bại
+      setSummaryData(oldSummaryData);
+      alert("Không thể xóa công việc. Vui lòng kiểm tra kết nối.");
+    }
   };
 
   const startEditing = () => {
@@ -499,10 +564,10 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       )}
 
       {editableTranscript && !isLoading && !errorMsg && (
-        <div className="mm-tabs no-print mobile-only-tabs" style={{ display: 'flex', gap: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', marginBottom: 'var(--space-5)' }}>
+        <div className="mm-tabs no-print" style={{ display: 'flex', gap: 'var(--space-4)', borderBottom: '1px solid var(--border-default)', marginBottom: 'var(--space-5)' }}>
           <button 
             style={{ 
-              background: 'none', border: 'none', padding: 'var(--space-3) var(--space-2)', 
+              background: 'none', border: 'none', padding: 'var(--space-3) var(--space-4)', 
               color: activeTab === 'transcript' ? 'var(--primary-500)' : 'var(--text-secondary)',
               borderBottom: activeTab === 'transcript' ? '2px solid var(--primary-500)' : '2px solid transparent',
               fontWeight: activeTab === 'transcript' ? 600 : 500,
@@ -510,21 +575,36 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
             }}
             onClick={() => setActiveTab('transcript')}
           >
-            Văn bản bóc băng
+            📝 Văn bản bóc băng
           </button>
           {summaryData && summaryData.id && (
-            <button 
-              style={{ 
-                background: 'none', border: 'none', padding: 'var(--space-3) var(--space-2)', 
-                color: activeTab === 'summary' ? 'var(--primary-500)' : 'var(--text-secondary)',
-                borderBottom: activeTab === 'summary' ? '2px solid var(--primary-500)' : '2px solid transparent',
-                fontWeight: activeTab === 'summary' ? 600 : 500,
-                cursor: 'pointer', fontSize: 'var(--text-md)'
-              }}
-              onClick={() => setActiveTab('summary')}
-            >
-              Kết quả Tóm tắt
-            </button>
+            <>
+              <button 
+                style={{ 
+                  background: 'none', border: 'none', padding: 'var(--space-3) var(--space-4)', 
+                  color: activeTab === 'summary' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                  borderBottom: activeTab === 'summary' ? '2px solid var(--primary-500)' : '2px solid transparent',
+                  fontWeight: activeTab === 'summary' ? 600 : 500,
+                  cursor: 'pointer', fontSize: 'var(--text-md)'
+                }}
+                onClick={() => setActiveTab('summary')}
+              >
+                ✨ Kết quả Tóm tắt
+              </button>
+              <button 
+                className="desktop-only-tab-btn"
+                style={{ 
+                  background: 'none', border: 'none', padding: 'var(--space-3) var(--space-4)', 
+                  color: activeTab === 'split' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                  borderBottom: activeTab === 'split' ? '2px solid var(--primary-500)' : '2px solid transparent',
+                  fontWeight: activeTab === 'split' ? 600 : 500,
+                  cursor: 'pointer', fontSize: 'var(--text-md)'
+                }}
+                onClick={() => setActiveTab('split')}
+              >
+                🖥️ Xem song song
+              </button>
+            </>
           )}
         </div>
       )}
@@ -538,10 +618,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       )}
 
       {editableTranscript && !isLoading && !errorMsg && (
-        <div className="summary-desktop-split">
+        <div className={(activeTab === 'split' || !summaryData) ? "summary-desktop-split" : "summary-desktop-single"}>
           
           {/* CỘT TRÁI: Transcript Section */}
-          <div className={`summary-split-left ${summaryData && summaryData.id && activeTab !== 'transcript' ? 'summary-mobile-tab-inactive' : ''}`}>
+          {(activeTab === 'transcript' || activeTab === 'split' || !summaryData) && (
+            <div className={`summary-split-left ${summaryData && summaryData.id && activeTab !== 'transcript' && activeTab !== 'split' ? 'summary-mobile-tab-inactive' : ''}`}>
             <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none', display: 'flex', flexDirection: 'column', height: '100%', margin: 0 }}>
               <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên.</span>
@@ -584,9 +665,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
               </div>
             )}
           </div>
+          )}
 
           {/* CỘT PHẢI: Summary Section hoặc AI Selector */}
-          <div className={`summary-split-right ${summaryData && summaryData.id && activeTab !== 'summary' ? 'summary-mobile-tab-inactive' : ''}`}>
+          {(activeTab === 'summary' || activeTab === 'split' || !summaryData) && (
+            <div className={`summary-split-right ${summaryData && summaryData.id && activeTab !== 'summary' && activeTab !== 'split' ? 'summary-mobile-tab-inactive' : ''}`}>
             
             {/* Trường hợp 1: Đã có summaryData */}
             {summaryData && summaryData.id ? (
@@ -708,24 +791,57 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                       {actionItems.length > 0 ? actionItems.map((item, index) => {
                         const uid = item.id || index;
                         return (
-                          <label key={uid} className={`summary__action-item ${item.completed ? 'summary__action-item--done' : ''}`} style={{ transition: 'all 0.3s ease' }}>
-                            <input
-                              type="checkbox"
-                              className="summary__action-check"
-                              checked={!!item.completed}
-                              onChange={() => toggleActionItem(uid)}
-                            />
-                            <div className="summary__action-info" style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
-                                <span className="summary__action-name">{item.task_name}</span>
-                                <PriorityBadge priority={item.priority} />
+                          <div key={uid} className={`summary__action-item ${item.completed ? 'summary__action-item--done' : ''}`} style={{ 
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            transition: 'all 0.3s ease', cursor: 'default' 
+                          }}>
+                            <label style={{ display: 'flex', alignItems: 'center', flex: 1, cursor: 'pointer', margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                className="summary__action-check"
+                                checked={!!item.completed}
+                                onChange={() => toggleActionItem(uid)}
+                                style={{ marginRight: 'var(--space-4)' }}
+                              />
+                              <div className="summary__action-info" style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-1)' }}>
+                                  <span className="summary__action-name">{item.task_name}</span>
+                                  <PriorityBadge priority={item.priority} />
+                                </div>
+                                <div className="summary__action-meta">
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUser/> {item.assignee || 'Trống'}</span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar/> {item.deadline || 'Trống'}</span>
+                                </div>
                               </div>
-                              <div className="summary__action-meta">
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUser/> {item.assignee || 'Trống'}</span>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar/> {item.deadline || 'Trống'}</span>
-                              </div>
-                            </div>
-                          </label>
+                            </label>
+                            
+                            <button 
+                              className="mm-btn mm-btn--sm mm-btn--danger"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                deleteActionItem(uid);
+                              }}
+                              style={{ 
+                                padding: '6px', minWidth: 'auto', borderRadius: '50%',
+                                background: 'transparent', color: 'var(--text-tertiary)',
+                                border: 'none', cursor: 'pointer', display: 'flex',
+                                alignItems: 'center', justifycontent: 'center', marginLeft: '8px',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = 'var(--google-red)';
+                                e.currentTarget.style.background = 'rgba(244, 63, 94, 0.08)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'var(--text-tertiary)';
+                                e.currentTarget.style.background = 'transparent';
+                              }}
+                              title="Xóa công việc"
+                            >
+                              <IconTrash />
+                            </button>
+                          </div>
                         );
                       }) : (
                         <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--space-4)' }}>Không có công việc nào.</p>
@@ -755,6 +871,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
             )}
 
           </div>
+          )}
 
         </div>
       )}

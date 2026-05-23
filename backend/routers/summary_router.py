@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from ..database import get_db
-from ..models import Meeting, Summary, User
+from ..models import Meeting, Summary, User, UserSettings
 from ..services.llm_service import generate_meeting_summary
 from .auth_router import get_current_user, get_optional_user
 
@@ -39,34 +39,49 @@ def summarize_meeting(
         raise HTTPException(status_code=400, detail="Văn bản bóc băng quá ngắn hoặc trống rỗng.")
 
     try:
-        # Gọi trực tiếp qua service LLM (có hỗ trợ Hybrid)
+        # 1. Truy vấn custom_prompt từ User Settings của user hiện tại (nếu có đăng nhập)
+        custom_prompt = None
+        if current_user:
+            settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+            if settings and settings.custom_prompt:
+                custom_prompt = settings.custom_prompt
+
+        # 2. Truy vấn tiêu đề cuộc họp từ database (nếu có meeting_id)
+        meeting_title = None
+        meeting = None
+        if request.meeting_id:
+            meeting = db.query(Meeting).filter(Meeting.id == request.meeting_id).first()
+            if meeting:
+                meeting_title = meeting.title
+
+        # Gọi trực tiếp qua service LLM (truyền thêm custom_prompt và meeting_title)
         result_payload = generate_meeting_summary(
             transcript_text=request.transcript,
-            provider=request.ai_provider
+            provider=request.ai_provider,
+            custom_prompt=custom_prompt,
+            meeting_title=meeting_title
         )
 
         # Lưu kết quả vào Database nếu có meeting_id
         saved_id = None
-        if request.meeting_id:
-            meeting = db.query(Meeting).filter(Meeting.id == request.meeting_id).first()
-            if meeting:
-                # Xóa summary cũ nếu có (upsert)
-                existing_summary = db.query(Summary).filter(Summary.meeting_id == meeting.id).first()
-                if existing_summary:
-                    db.delete(existing_summary)
-                    db.flush()
+        if meeting:
+            # Xóa summary cũ nếu có (upsert)
+            existing_summary = db.query(Summary).filter(Summary.meeting_id == meeting.id).first()
+            if existing_summary:
+                db.delete(existing_summary)
+                db.flush()
 
-                new_summary = Summary(
-                    meeting_id=meeting.id,
-                    summary_text=result_payload["summary_text"],
-                    decisions=result_payload["decisions"],
-                    action_items=result_payload["action_items"]
-                )
-                db.add(new_summary)
-                db.commit()
-                db.refresh(new_summary)
-                saved_id = new_summary.id
-                print(f"[LLM] Success: Summary saved to DB for meeting_id={meeting.id}")
+            new_summary = Summary(
+                meeting_id=meeting.id,
+                summary_text=result_payload["summary_text"],
+                decisions=result_payload["decisions"],
+                action_items=result_payload["action_items"]
+            )
+            db.add(new_summary)
+            db.commit()
+            db.refresh(new_summary)
+            saved_id = new_summary.id
+            print(f"[LLM] Success: Summary saved to DB for meeting_id={meeting.id}")
 
         return {
             "message": "Trích xuất bằng Trí Tuệ Nhân Tạo Llama 3.2 thành công.",
