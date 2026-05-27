@@ -1,70 +1,124 @@
-# MeetingMind AI - Hệ Thống Trợ Lý Cuộc Họp Thông Minh
+# MeetingMind AI - Installation and Configuration Guide
 
-## 📖 Tổng Quan Dự Án (Project Overview)
-
-**MeetingMind AI** là một giải pháp tổng thể (Full-Stack) nhằm tự động hóa quy trình ghi chép và trích xuất thông tin từ các cuộc họp. Thông qua sự kết hợp giữa **Trí tuệ Nhân tạo (AI)**, **Mô hình Ngôn ngữ Lớn (LLM)** và kiến trúc truyền phát luồng (Stream) thời gian thực, ứng dụng giúp người dùng thu âm, đọc hiểu giọng nói và tự động chuyển hóa thành các văn bản hành động (Action Items) có hệ thống.
-
-**Tính năng cốt lõi:**
-1. **Thu thập giọng nói (Real-time & Upload):** Hỗ trợ kéo & thả các file ghi âm có sẵn (m4a, mp3, wav) hoặc ghi âm trực tiếp tại trình duyệt. Quá trình xử lý âm thanh sử dụng giao thức WebSocket kết hợp kỹ thuật cắt chunk logic tự động cắt 3s/lần, cho phép nhận diện ngay khi đang nói mà không làm tắc nghẽn băng thông.
-2. **Nhận diện giọng nói siêu tốc (Whisper STT):** Tiền xử lý tự động với thư viện FFmpeg ngầm đưa luồng âm thanh về mức tối ưu `16kHz, mono`, đảm bảo độ chính xác cực cao trước khi đưa vào mô hình STT (Speech-To-Text).
-3. **Phân tích bóc tách bằng AI Local (LLM Ollama):** Chạy nội bộ trên local để bảo mật dữ liệu cuộc họp. Dùng mô hình LLaMA lập luận chặt chẽ để rút trích thành các bộ chuẩn định dạng JSON cho: **Tóm tắt nội dung**, **Các quyết định chính** và **Danh sách Việc Cần Làm (Checklist tasks)**.
+This document provides step-by-step instructions on how to install the system, set up the `.env` file, configure the Google Gemini API Key, and set up local AI models using Ollama.
 
 ---
 
-## 💻 Tech Stack (Bộ Công Nghệ Sử Dụng)
+## 1. System Requirements
 
-- **Frontend:** ReactJS, Vite, Web Audio API (Vẽ sóng Waveform đồ thị giọng nói).
-- **Backend:** Python (FastAPI), SQLAlchemy (Quản lý Schema), WebSockets.
-- **Database & Storage Cơ Sở:** PostgreSQL, S3/MinIO.
-- **AI / Cơ chế Core Logic:** FFmpeg, LLaMA Model (thông qua cổng Ollama), Whisper.
+Before you begin, ensure that your computer has the following tools installed:
+
+*   **Node.js (LTS 18+):** Required to run the Frontend interface.
+*   **Python (3.10+):** Required to run the FastAPI Backend server. Make sure to check the "Add Python to PATH" option during installation.
+*   **FFmpeg:** Mandatory for the backend to process, slice, and convert audio files into the standard 16kHz mono format.
+    *   *Windows:* Download the ZIP file from the official FFmpeg website, extract it, and add the path of the `bin` folder to your system's `Path` environment variable.
+    *   *macOS:* Install via Homebrew by running: `brew install ffmpeg`.
+    *   *Linux:* Install via package manager: `sudo apt update && sudo apt install ffmpeg`.
 
 ---
 
-## ⚙️ Hướng Dẫn Cài Đặt (Installation Details)
+## 2. Installing Dependencies (Monorepo Setup)
 
-Hệ thống được tách riêng biệt giữa Client (React) và Server (FastAPI). Để cài đặt nhanh chóng, hãy tiến hành đủ 3 bước chính sau đây:
+The project is structured as a Monorepo. You can install all dependencies for both Frontend and Backend with a single command:
 
-### Yêu Cầu Thiết Yếu Bắt Buộc:
-- Hệ thống cần được cài đặt sẵn [Python (3.10+)](https://www.python.org/downloads/) và [Node.js (LTS 18+)](https://nodejs.org/).
-- Cần cài đặt engine [FFmpeg](https://ffmpeg.org/download.html) và đảm bảo đã set đường dẫn vào biến môi trường Path của hệ điều hành.
+1.  Open your Terminal (or PowerShell) at the project root directory (the `MeetingMindAI` folder).
+2.  Run the following command:
+    ```bash
+    npm run install:all
+    ```
 
-### Bước 1: Setup Công Cụ Suy Luận AI (Ollama)
-Hệ thống sử dụng port `11434` của ứng dụng Ollama trên localhost để lấy bộ tóm tắt tự động.
-1. Download và chạy file Setup Ollama tại: [https://ollama.com/](https://ollama.com/)
-2. Mở trình gõ lệnh (CMD/Terminal) và kéo model về (Chỉ cần làm 1 lần khoảng ~2GB tải).
-   ```bash
-   ollama run llama3.2
-   ```
+**What this command does automatically:**
+*   Installs `concurrently` in the root folder to support running both servers in parallel.
+*   Navigates to the `frontend` directory and installs NPM packages (`npm install`).
+*   Navigates to the `backend` directory, creates a Python virtual environment (`.venv`), and installs all required libraries from `requirements.txt` (`pip install -r requirements.txt`).
 
-### Bước 2: Setup Môi Trường Backend & Cài Đặt (Chỉ làm 1 lần đầu)
-Mở Terminal tại thư mục chính (gốc) của dự án, chạy 2 lệnh sau để cài đặt các thư viện cần thiết cho cả Frontend và Backend.
+---
 
-**Cài Frontend:**
-```bash
-cd frontend
-npm install
-cd ..
+## 3. Setting Up the .env File and API Key
+
+The backend reads configuration settings from a `.env` file located in the root of the project (`MeetingMindAI/.env`).
+
+### Steps to create and configure the .env file:
+
+1.  In the project root folder (`MeetingMindAI`), create a new file named `.env` (or copy from `backend/.env.example`).
+2.  Open the `.env` file in a text editor and fill in the following parameters:
+
+```env
+# Database Configuration (Defaults to SQLite which runs locally with no extra installation)
+DATABASE_URL="sqlite:///./meetingmind.db"
+
+# Security Configuration for JWT Token Encryption
+SECRET_KEY="meetingmind_secret_key_123456"
+ALGORITHM="HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# Cloud AI Configuration (Google Gemini) - Leave empty if running 100% Offline
+GEMINI_API_KEY="AIzaSy_YOUR_GEMINI_API_KEY_HERE"
+
+# Local AI Configuration (Ollama) - Leave empty if using Cloud AI exclusively
+OLLAMA_MODEL="qwen2.5:7b-instruct"
 ```
 
-**Cài Backend:**
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-cd ..
-```
+### How to get a Google Gemini API Key:
 
-### Bước 3: Khởi Động Nhanh Cả Hệ Thống (Bằng 1 Lệnh NPM)
-Để loại bỏ sự phiền phức của Windows script (`.bat`), hệ thống đã được đồng bộ hóa thành một Monorepo với công cụ trợ lý `concurrently`.
+If you want to use the Cloud mode for maximum transcription speed and automatic speaker identification (Speaker Diarization):
+1.  Go to: [Google AI Studio](https://aistudio.google.com/app/apikey).
+2.  Sign in with your Google account.
+3.  Click the **"Create API Key"** button.
+4.  Copy the generated key string (starts with `AIzaSy...`) and paste it into the `GEMINI_API_KEY` variable in your `.env` file.
 
-Từ thư mục gốc dự án (nơi có chứa file `package.json` mới nhất), bạn chỉ cần gõ đúng một lệnh:
+---
+
+## 4. Setting Up Local AI (Ollama)
+
+The system supports running fully offline for data security. Follow these steps to set up local AI:
+
+1.  **Download Ollama:** Visit [https://ollama.com/](https://ollama.com/) to download and install the version compatible with your OS.
+2.  **Launch Ollama:** Ensure the Ollama application is running in the background (check for the icon in your system tray).
+3.  **Download the Model:** Open your Command Prompt (CMD) or Terminal and run the following command to download the model (this is a one-time process, download size is ~2GB to 4.7GB):
+    *   *Recommended for Vietnamese and general tasks (Qwen 2.5):*
+        ```bash
+        ollama run qwen2.5:7b-instruct
+        ```
+    *   *Or the lightweight model from Meta (Llama 3.2):*
+        ```bash
+        ollama run llama3.2
+        ```
+4.  **Declare in `.env`:** Update the `OLLAMA_MODEL` variable in your `.env` file to match the model name you downloaded (e.g., `OLLAMA_MODEL="qwen2.5:7b-instruct"` or `OLLAMA_MODEL="llama3.2"`).
+
+---
+
+## 5. Starting the Application
+
+Once you have completed installation and configured the `.env` file, you can start both the Backend and Frontend servers concurrently using one of the following methods:
+
+### Method 1: Using NPM (Recommended)
+At the project root directory, open your Terminal and run:
 ```bash
 npm start
 ```
+This command automatically starts both servers in parallel in a single console:
+*   Backend API runs at: `http://localhost:8000`
+*   Frontend interface runs at: `http://localhost:5173`
 
-*(Lưu ý: Nếu mới tải dự án lần đầu, hãy gõ `npm run install:all` để tự động kích hoạt CSDL và thư viện rồi hãy gõ `npm start`)*.
+### Method 2: Using the Python Script
+Run the following command at the project root directory:
+```bash
+python start.py
+```
 
-Lệnh trên sẽ tự động hợp nhất log hiển thị của cả Backend FastAPI và Frontend ReactJS vào cùng một cửa sổ Console cực kỳ chuyên nghiệp. 
+Once the servers are running, open your web browser and navigate to **`http://localhost:5173`** to access the dashboard.
 
-Bây giờ bạn truy cập đường link **`http://localhost:5173`** là sẽ tới thẳng màn hình Dashboard thu âm cực nhạy và giao diện List công việc trực quan! Thử tận hưởng sức mạnh của MeetingMind AI nhé.
+---
+
+## 6. How the System Switches Between Local and Cloud Modes
+
+The system is designed to automatically detect and adapt to your configuration:
+
+*   **Speech-To-Text (STT) Processing:**
+    *   The backend automatically checks the `GEMINI_API_KEY` variable in your `.env` file.
+    *   If a valid API key is found, the system uses Google Gemini API for fast transcription and speaker diarization.
+    *   If the key is empty, the system automatically falls back to using **Faster-Whisper** running locally on your computer.
+*   **LLM Summary Processing:**
+    *   In the meeting details view, the backend calls the LLM configured to process summaries and extract actionable JSON items.
+    *   If you choose to use Ollama, ensure that Ollama is running and that the model declared in `.env` has been downloaded successfully.
