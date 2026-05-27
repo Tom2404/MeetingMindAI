@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import API_BASE_URL from '../config';
+import { gsap } from 'gsap';
 
 const API_URL = `${API_BASE_URL}/api/v1/health`;
 
@@ -20,6 +21,8 @@ const AIStatusBar = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const detailRef = useRef(null);
 
   const checkAI = useCallback(async () => {
     setIsChecking(true);
@@ -42,6 +45,28 @@ const AIStatusBar = () => {
   }, []);
 
   useEffect(() => { checkAI(); const i = setInterval(checkAI, 30000); return () => clearInterval(i); }, [checkAI]);
+
+  // GSAP - Accordion slide expansion for Details Panel
+  useEffect(() => {
+    if (detailRef.current) {
+      if (isExpanded && status) {
+        gsap.killTweensOf(detailRef.current);
+        gsap.fromTo(detailRef.current, 
+          { height: 0, opacity: 0 }, 
+          { height: 'auto', opacity: 1, duration: 0.45, ease: 'power2.out', overflow: 'hidden' }
+        );
+      } else {
+        gsap.killTweensOf(detailRef.current);
+        gsap.to(detailRef.current, {
+          height: 0,
+          opacity: 0,
+          duration: 0.35,
+          ease: 'power2.in',
+          overflow: 'hidden'
+        });
+      }
+    }
+  }, [isExpanded, status]);
 
   const formatTime = (date) => date ? date.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '';
 
@@ -89,39 +114,41 @@ const AIStatusBar = () => {
         </div>
       </div>
 
-      {/* Detail */}
-      {isExpanded && status && (
-        <div className="ai-status__detail">
-          {status._network_error && (
-            <div className="mm-alert mm-alert--danger">
-              <span className="mm-alert__icon"><IconAlertTriangle /></span>
-              <div className="mm-alert__content">
-                <span className="mm-alert__title">Lỗi kết nối Backend</span>
-                <span className="mm-alert__message">{status._error_message}</span>
+      {/* Detail Container - Controlled by GSAP Accordion (always in DOM but height 0 initially) */}
+      <div ref={detailRef} style={{ height: 0, opacity: 0, overflow: 'hidden' }} className="ai-status__detail">
+        {status && (
+          <>
+            {status._network_error && (
+              <div className="mm-alert mm-alert--danger">
+                <span className="mm-alert__icon"><IconAlertTriangle /></span>
+                <div className="mm-alert__content">
+                  <span className="mm-alert__title">Lỗi kết nối Backend</span>
+                  <span className="mm-alert__message">{status._error_message}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <ServiceRow name="AI Tóm tắt (Ollama / Llama)" ok={llmOk}
-            warning={status.llm?.ok && !status.llm?.model_found}
-            message={status.llm?.message} models={status.llm?.models} />
+            <ServiceRow name="AI Tóm tắt (Ollama / Llama)" ok={llmOk}
+              warning={status.llm?.ok && !status.llm?.model_found}
+              message={status.llm?.message} models={status.llm?.models} />
 
-          <ServiceRow name="AI Bóc băng (Faster-Whisper)" ok={sttOk}
-            warning={status.stt?.ok && !status.stt?.model_loaded}
-            message={status.stt?.message} />
+            <ServiceRow name="AI Bóc băng (Faster-Whisper)" ok={sttOk}
+              warning={status.stt?.ok && !status.stt?.model_loaded}
+              message={status.stt?.message} />
 
-          {!status.overall_ok && !status._network_error && (
-            <div className="ai-status__guide">
-              <strong>Hướng dẫn khắc phục:</strong>
-              <ul>
-                {!status.llm?.ok && <li>Khởi động Ollama: <code>ollama serve</code></li>}
-                {status.llm?.ok && !status.llm?.model_found && <li>Cài model: <code>ollama pull llama3.2</code></li>}
-                {!status.stt?.ok && <li>Cài Whisper: <code>pip install faster-whisper</code></li>}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+            {!status.overall_ok && !status._network_error && (
+              <div className="ai-status__guide">
+                <strong>Hướng dẫn khắc phục:</strong>
+                <ul>
+                  {!status.llm?.ok && <li>Khởi động Ollama: <code>ollama serve</code></li>}
+                  {status.llm?.ok && !status.llm?.model_found && <li>Cài model: <code>ollama pull llama3.2</code></li>}
+                  {!status.stt?.ok && <li>Cài Whisper: <code>pip install faster-whisper</code></li>}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

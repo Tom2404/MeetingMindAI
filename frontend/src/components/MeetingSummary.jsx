@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import API_BASE_URL from '../config';
+import { DEFAULT_TEMPLATES } from '../config/templates';
 
 // ─── SVG Icons ───
 const IconEdit = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>;
@@ -177,6 +178,49 @@ const TranscriptBubble = ({ chunk, index, allSpeakers, onSpeakerNameChange }) =>
   );
 };
 
+// Utility parser to reconstruct speaker chunks from raw text
+const parseTranscriptToChunks = (text) => {
+  if (!text) return [];
+  const lines = text.split('\n');
+  const parsedChunks = [];
+  
+  lines.forEach(line => {
+    if (!line.trim()) return;
+    
+    // Pattern 1: Matches [Speaker X]: Text... or [Name]: Text...
+    const bracketMatch = line.match(/^\[([^\]]+)\]:\s*(.*)$/);
+    if (bracketMatch) {
+      parsedChunks.push({
+        speaker: bracketMatch[1].trim(),
+        text: bracketMatch[2].trim()
+      });
+      return;
+    }
+    
+    // Pattern 2: Matches Speaker X: Text... or Name: Text...
+    const colonMatch = line.match(/^([^:]+):\s*(.*)$/);
+    if (colonMatch && !colonMatch[1].includes('[')) {
+      parsedChunks.push({
+        speaker: colonMatch[1].trim(),
+        text: colonMatch[2].trim()
+      });
+      return;
+    }
+    
+    // Fallback: If no match, add to the previous chunk, or add as Speaker Unknown
+    if (parsedChunks.length > 0) {
+      parsedChunks[parsedChunks.length - 1].text += '\n' + line.trim();
+    } else {
+      parsedChunks.push({
+        speaker: "Người nói",
+        text: line.trim()
+      });
+    }
+  });
+  
+  return parsedChunks;
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSummaryId, token, meetingInfo }) => {
@@ -190,6 +234,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const [editableTranscript, setEditableTranscript] = useState('');
   const [transcriptChunks, setTranscriptChunks]   = useState([]);
   const [activeTab, setActiveTab]           = useState('summary'); 
+  const [viewMode, setViewMode]             = useState('bubbles'); // 'bubbles' or 'raw'
   
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
@@ -201,7 +246,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   useEffect(() => {
     if (activeTranscript) {
       setEditableTranscript(activeTranscript);
-      if (activeChunks) setTranscriptChunks(activeChunks);
+      if (activeChunks && activeChunks.length > 0) {
+        setTranscriptChunks(activeChunks);
+      } else {
+        setTranscriptChunks(parseTranscriptToChunks(activeTranscript));
+      }
       if (!summaryData) setActiveTab('transcript');
     }
   }, [activeTranscript, activeChunks]);
@@ -224,8 +273,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       setSummaryData(data.summary);
       if (data.transcript) {
         setEditableTranscript(data.transcript);
-        if (data.chunks && data.chunks.length > 0) setTranscriptChunks(data.chunks);
-        else setTranscriptChunks([]);
+        if (data.chunks && data.chunks.length > 0) {
+          setTranscriptChunks(data.chunks);
+        } else {
+          setTranscriptChunks(parseTranscriptToChunks(data.transcript));
+        }
       }
       if (data.summary && data.summary.id) setActiveTab('summary');
       else setActiveTab('transcript');
@@ -250,6 +302,13 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     setEditableTranscript(updatedFullText);
   };
 
+  const handleViewModeChange = (mode) => {
+    if (mode === 'bubbles') {
+      setTranscriptChunks(parseTranscriptToChunks(editableTranscript));
+    }
+    setViewMode(mode);
+  };
+
   const handleStartSummarize = async (overrideProvider) => {
     if (!activeTranscript) return;
     setIsLoading(true); setErrorMsg(''); setErrorType(''); setLoadingSeconds(0); setIsSaved(false);
@@ -260,10 +319,19 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       const parsedMeetingId = parseInt(meetingId, 10);
       const finalMeetingId = isNaN(parsedMeetingId) ? null : parsedMeetingId;
 
+      // Đọc Mẫu Prompt Mặc Định từ LocalStorage để truyền cấu trúc chỉ thị AI
+      let customPromptText = null;
+      const defaultTemplateId = localStorage.getItem('meetingmind_default_template') || 'weekly-sync';
+      const defaultTemplate = DEFAULT_TEMPLATES.find(t => t.id === defaultTemplateId);
+      if (defaultTemplate) {
+        customPromptText = defaultTemplate.prompt;
+      }
+
       const payload = {
         transcript: editableTranscript || activeTranscript,
         meeting_id: finalMeetingId,
-        ai_provider: overrideProvider || aiProvider
+        ai_provider: overrideProvider || aiProvider,
+        custom_prompt: customPromptText
       };
 
       const res = await fetch(`${API_BASE_URL}/api/v1/meetings/summarize`, {
@@ -575,7 +643,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
             }}
             onClick={() => setActiveTab('transcript')}
           >
-            📝 Văn bản bóc băng
+            Văn bản bóc băng
           </button>
           {summaryData && summaryData.id && (
             <>
@@ -589,7 +657,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                 }}
                 onClick={() => setActiveTab('summary')}
               >
-                ✨ Kết quả Tóm tắt
+                Kết quả Tóm tắt
               </button>
               <button 
                 className="desktop-only-tab-btn"
@@ -602,7 +670,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                 }}
                 onClick={() => setActiveTab('split')}
               >
-                🖥️ Xem song song
+                Xem song song
               </button>
             </>
           )}
@@ -624,11 +692,67 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
           {(activeTab === 'transcript' || activeTab === 'split' || !summaryData) && (
             <div className={`summary-split-left ${summaryData && summaryData.id && activeTab !== 'transcript' && activeTab !== 'split' ? 'summary-mobile-tab-inactive' : ''}`}>
             <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none', display: 'flex', flexDirection: 'column', height: '100%', margin: 0 }}>
-              <div style={{ marginBottom: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên.</span>
+              <div style={{ marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-3)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                  {viewMode === 'bubbles' ? (
+                    <span>Bạn có thể <b>click vào tên người nói</b> để đổi tên.</span>
+                  ) : (
+                    <span>Chế độ <b>Chỉnh sửa văn bản thô</b>.</span>
+                  )}
+                </span>
+                
+                {/* View Mode Segmented Control */}
+                <div style={{
+                  display: 'inline-flex',
+                  background: 'var(--bg-surface-hover)',
+                  padding: '3px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-default)',
+                }}>
+                  <button
+                    onClick={() => handleViewModeChange('bubbles')}
+                    style={{
+                      background: viewMode === 'bubbles' ? 'var(--bg-surface)' : 'transparent',
+                      border: 'none',
+                      color: viewMode === 'bubbles' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                      padding: '4px 12px',
+                      fontSize: 'var(--text-xs)',
+                      fontWeight: 600,
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      boxShadow: viewMode === 'bubbles' ? 'var(--shadow-xs)' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    Bong bóng
+                  </button>
+                  <button
+                    onClick={() => handleViewModeChange('raw')}
+                    style={{
+                      background: viewMode === 'raw' ? 'var(--bg-surface)' : 'transparent',
+                      border: 'none',
+                      color: viewMode === 'raw' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                      padding: '4px 12px',
+                      fontSize: 'var(--text-xs)',
+                      fontWeight: 600,
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      boxShadow: viewMode === 'raw' ? 'var(--shadow-xs)' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    Văn bản thô
+                  </button>
+                </div>
               </div>
-              {transcriptChunks.length > 0 ? (
-                <div className="transcript-bubbles" style={{ 
+              {viewMode === 'bubbles' && transcriptChunks.length > 0 ? (
+                <div className="transcript-bubbles animate-fade-in" style={{ 
                   display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', 
                   flex: 1, overflowY: 'auto', padding: 'var(--space-4)',
                   background: 'var(--bg-body)', borderRadius: 'var(--radius-lg)',

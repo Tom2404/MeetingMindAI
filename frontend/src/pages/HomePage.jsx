@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMeeting } from '../contexts/MeetingContext';
 import MeetingSetup from '../components/MeetingSetup';
 import API_BASE_URL from '../config';
+import { gsap } from 'gsap';
 
 const HomePage = () => {
   const { currentUser, token } = useAuth();
@@ -13,6 +14,8 @@ const HomePage = () => {
   
   const [recentMeetings, setRecentMeetings] = useState([]);
   const [stats, setStats] = useState({ total: 0, completed: 0 });
+
+  const pageRef = useRef(null);
 
   useEffect(() => {
     // Fetch meetings for stats and recent list
@@ -31,6 +34,38 @@ const HomePage = () => {
     })
     .catch(err => console.error(err));
   }, [token]);
+
+  // GSAP - Bento Grid staggered entry
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline();
+      tl.fromTo('.page-greeting__hello', 
+        { y: -20, opacity: 0 }, 
+        { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' }
+      )
+      .fromTo('.page-greeting__sub', 
+        { y: -10, opacity: 0 }, 
+        { y: 0, opacity: 1, duration: 0.5, ease: 'power3.out' },
+        '-=0.45'
+      )
+      .fromTo('.bento-card', 
+        { y: 35, opacity: 0 }, 
+        { y: 0, opacity: 1, duration: 0.75, ease: 'back.out(1.15)', stagger: 0.08 },
+        '-=0.35'
+      );
+
+      // Pulse main CTA button glow
+      gsap.to('.bento-hero-btn', {
+        boxShadow: '0 0 20px rgba(35, 131, 226, 0.45)',
+        repeat: -1,
+        yoyo: true,
+        duration: 1.4,
+        ease: 'sine.inOut'
+      });
+    }, pageRef);
+
+    return () => ctx.revert();
+  }, [recentMeetings]);
 
   const getGreeting = () => { 
     const h = new Date().getHours(); 
@@ -64,7 +99,7 @@ const HomePage = () => {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in" ref={pageRef}>
       <div className="page-greeting" style={{ marginBottom: 0 }}>
         <h1 className="page-greeting__hello" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {getGreeting()}, {displayName}

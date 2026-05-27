@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
+import { gsap } from 'gsap';
 
 // === Icons ===
 const IconClock = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>;
@@ -20,6 +21,8 @@ const AnalyticsPage = () => {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const analyticsRef = useRef(null);
 
   useEffect(() => {
     fetchData();
@@ -121,6 +124,54 @@ const AnalyticsPage = () => {
     return 'var(--text-tertiary)';
   };
 
+  // GSAP - Dynamic load staggered animations & Counter numbers
+  useEffect(() => {
+    if (!isLoading && meetings.length > 0) {
+      const ctx = gsap.context(() => {
+        // 1. Panels & Cards Staggered Slide In
+        gsap.fromTo('.glass-panel', 
+          { y: 30, opacity: 0 }, 
+          { y: 0, opacity: 1, duration: 0.75, ease: 'power3.out', stagger: 0.08 }
+        );
+
+        // 2. Bar fill progress animation (fetching dataset.width attribute)
+        gsap.fromTo('.bar-fill', 
+          { width: '0%' }, 
+          { 
+            width: (i, target) => target.dataset.width || '0%', 
+            duration: 1.2, 
+            ease: 'power2.out', 
+            stagger: 0.06, 
+            delay: 0.35 
+          }
+        );
+
+        // 3. Number Counters
+        const animateCounter = (selector, endVal) => {
+          const el = document.querySelector(selector);
+          if (el) {
+            const countObj = { val: 0 };
+            gsap.to(countObj, {
+              val: endVal,
+              duration: 1,
+              ease: 'power1.out',
+              delay: 0.2,
+              onUpdate: () => {
+                el.innerText = Math.round(countObj.val) + (selector.includes('rate') ? '%' : '');
+              }
+            });
+          }
+        };
+
+        animateCounter('.counter-total-meetings', totalMeetings);
+        animateCounter('.counter-completed-rate', taskCompletionRate);
+        animateCounter('.counter-pending-tasks', pendingTasks);
+      }, analyticsRef);
+
+      return () => ctx.revert();
+    }
+  }, [isLoading, meetings]);
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
@@ -143,10 +194,10 @@ const AnalyticsPage = () => {
   }
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease-out', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+    <div style={{ animation: 'fadeIn 0.3s ease-out', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }} ref={analyticsRef}>
       
       {/* Banner */}
-      <div style={{
+      <div className="glass-panel" style={{
         background: 'var(--brand-gradient)',
         borderRadius: 'var(--radius-xl)',
         padding: 'var(--space-8)',
@@ -208,7 +259,7 @@ const AnalyticsPage = () => {
               </div>
               <div>
                 <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tổng cuộc họp</div>
-                <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', lineHeight: 1 }}>{totalMeetings}</div>
+                <div className="counter-total-meetings" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', lineHeight: 1 }}>0</div>
               </div>
             </div>
 
@@ -271,7 +322,7 @@ const AnalyticsPage = () => {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Độ hoàn thành task</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
-                  <span style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{taskCompletionRate}%</span>
+                  <span className="counter-completed-rate" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>0%</span>
                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>({completedTasks}/{totalTasks})</span>
                 </div>
               </div>
@@ -303,7 +354,7 @@ const AnalyticsPage = () => {
               </div>
               <div>
                 <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Task tồn đọng</div>
-                <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', lineHeight: 1 }}>{pendingTasks}</div>
+                <div className="counter-pending-tasks" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', lineHeight: 1 }}>0</div>
               </div>
             </div>
           </div>
@@ -349,8 +400,8 @@ const AnalyticsPage = () => {
                       overflow: 'hidden',
                       border: '1px solid var(--border-default)'
                     }}>
-                      <div style={{
-                        width: `${taskCompletionRate}%`,
+                      <div className="bar-fill" data-width={`${taskCompletionRate}%`} style={{
+                        width: '0%',
                         height: '100%',
                         background: 'linear-gradient(90deg, var(--google-green) 0%, var(--google-green-light) 100%)',
                         borderRadius: 'var(--radius-full)',
@@ -385,8 +436,8 @@ const AnalyticsPage = () => {
                           </span>
                           
                           <div style={{ flex: 1, height: '8px', background: 'var(--bg-body)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${rate}%`,
+                            <div className="bar-fill" data-width={`${rate}%`} style={{
+                              width: '0%',
                               height: '100%',
                               background: getPriorityColor(prio),
                               borderRadius: 'var(--radius-full)',
@@ -429,7 +480,7 @@ const AnalyticsPage = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                   {assigneeStats.map((member, index) => (
                     <div key={member.name} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                           <div style={{
                             width: '24px',
@@ -451,14 +502,14 @@ const AnalyticsPage = () => {
                             {index === 0 && <span style={{ marginLeft: '6px', fontSize: '9px', fontWeight: 700, background: 'var(--google-blue-bg)', color: 'var(--google-blue)', padding: '1px 6px', borderRadius: '4px' }}>Tập trung</span>}
                           </span>
                         </div>
-                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-secondary)', marginLeft: 'auto' }}>
                           {member.completed}/{member.total} tasks ({member.rate}%)
                         </span>
                       </div>
                       
                       <div style={{ height: '6px', background: 'var(--bg-body)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                        <div style={{
-                          width: `${member.rate}%`,
+                        <div className="bar-fill" data-width={`${member.rate}%`} style={{
+                          width: '0%',
                           height: '100%',
                           background: member.rate >= 70 ? 'var(--google-green)' : member.rate >= 40 ? 'var(--google-blue)' : 'var(--google-red)',
                           borderRadius: 'var(--radius-full)',
@@ -491,7 +542,6 @@ const AnalyticsPage = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               {meetings.slice(0, 5).map((m) => {
-                const durationMinutes = Math.round((m.duration_seconds || 0) / 60) || 1;
                 const percent = Math.min(100, Math.round(((m.duration_seconds || 1) / maxDuration) * 100));
                 const formattedDate = new Date(m.created_at).toLocaleDateString('vi-VN', {
                   day: '2-digit',
@@ -522,8 +572,8 @@ const AnalyticsPage = () => {
 
                     <div style={{ flex: '2 1 300px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ flex: 1, height: '18px', background: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
-                        <div style={{
-                          width: `${percent}%`,
+                        <div className="bar-fill" data-width={`${percent}%`} style={{
+                          width: '0%',
                           height: '100%',
                           background: 'linear-gradient(90deg, var(--primary-500) 0%, var(--primary-300) 100%)',
                           borderRadius: '5px',

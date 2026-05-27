@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional
 
 from ..database import get_db
@@ -15,6 +16,7 @@ class SummaryRequest(BaseModel):
     transcript: str
     meeting_id: Optional[int] = None  # Liên kết summary với meeting cụ thể (nếu có)
     ai_provider: Optional[str] = "ollama"  # "ollama" hoặc "gemini"
+    custom_prompt: Optional[str] = None  # Custom Prompt chỉ định bối cảnh tóm tắt
 
 
 class SummaryUpdateRequest(BaseModel):
@@ -39,9 +41,9 @@ def summarize_meeting(
         raise HTTPException(status_code=400, detail="Văn bản bóc băng quá ngắn hoặc trống rỗng.")
 
     try:
-        # 1. Truy vấn custom_prompt từ User Settings của user hiện tại (nếu có đăng nhập)
-        custom_prompt = None
-        if current_user:
+        # 1. Truy vấn custom_prompt từ request hoặc User Settings của user hiện tại (nếu có đăng nhập)
+        custom_prompt = request.custom_prompt
+        if not custom_prompt and current_user:
             settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
             if settings and settings.custom_prompt:
                 custom_prompt = settings.custom_prompt
@@ -154,7 +156,8 @@ def get_meeting_summary(
             "created_at": str(meeting.created_at)
         },
         "summary": summary_data,
-        "transcript": meeting.transcript.full_text if meeting.transcript else None
+        "transcript": meeting.transcript.full_text if meeting.transcript else None,
+        "chunks": meeting.transcript.chunks if meeting.transcript else []
     }
 
 
@@ -246,6 +249,89 @@ def update_action_item_status(
     action_items[item_index]["completed"] = request.get("completed", False)
     
     summary.action_items = action_items
+    flag_modified(summary, "action_items")
     db.commit()
     
     return {"message": "Đã cập nhật trạng thái công việc."}
+
+
+@router.delete("/{meeting_id}/action-items/{item_index}")
+def delete_action_item(
+    meeting_id: int,
+    item_index: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Xóa một Action Item cụ thể khỏi bản tóm tắt cuộc họp.
+    """
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.user_id == current_user.id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Không có quyền.")
+        
+    summary = db.query(Summary).filter(Summary.meeting_id == meeting_id).first()
+    if not summary or not summary.action_items:
+        raise HTTPException(status_code=404, detail="Không tìm thấy.")
+        
+    action_items = list(summary.action_items)
+    if item_index < 0 or item_index >= len(action_items):
+        raise HTTPException(status_code=404, detail="Index không hợp lệ.")
+        
+    action_items.pop(item_index)
+    summary.action_items = action_items
+    flag_modified(summary, "action_items")
+    db.commit()
+    return {"message": "Đã xóa công việc thành công."}
+
+
+@router.put("/{meeting_id}/action-items/{item_index}")
+def update_action_item(
+    meeting_id: int,
+    item_index: int,
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cập nhật nội dung chi tiết (Tên, Người phụ trách, Hạn chót, Độ ưu tiên) của một Action Item.
+    """
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.user_id == current_user.id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Không có quyền.")
+        
+    summary = db.query(Summary).filter(Summary.meeting_id == meeting_id).first()
+    if not summary or not summary.action_items:
+        raise HTTPException(status_code=404, detail="Không tìm thấy.")
+        
+    action_items = list(summary.action_items)
+    if item_index < 0 or item_index >= len(action_items):
+        raise HTTPException(status_code=404, detail="Index không hợp lệ.")
+        
+    # Cập nhật thông tin mới
+    action_items[item_index]["task_name"] = request.get("task_name", action_items[item_index].get("task_name", ""))
+    action_items[item_index]["assignee"] = request.get("assignee", action_items[item_index].get("assignee", ""))
+    action_items[item_index]["deadline"] = request.get("deadline", action_items[item_index].get("deadline", ""))
+    action_items[item_index]["priority"] = request.get("priority", action_items[item_index].get("priority", "medium"))
+    
+    summary.action_items = action_items
+    flag_modified(summary, "action_items")
+    db.commit()
+    return {"message": "Đã cập nhật công việc thành công."}
+
+
+@router.delete("/{meeting_id}")
+def delete_meeting(
+    meeting_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Xóa một cuộc họp và toàn bộ dữ liệu đi kèm (Summary, Transcript) theo cơ chế CASCADE.
+    """
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.user_id == current_user.id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Không tìm thấy cuộc họp hoặc bạn không có quyền xóa.")
+        
+    db.delete(meeting)
+    db.commit()
+    return {"message": "Đã xóa cuộc họp thành công."}
