@@ -34,9 +34,6 @@ const ProfilePage = () => {
     .then(res => res.ok ? res.json() : Promise.reject())
     .then(data => {
       setSettings(data);
-      if (data.theme && data.theme !== theme) {
-        setTheme(data.theme); // Sync local theme with backend
-      }
     })
     .catch(err => console.error("Could not fetch settings", err));
   }, [token]);

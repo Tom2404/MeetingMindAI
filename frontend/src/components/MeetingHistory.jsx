@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import API_BASE_URL from '../config';
+import { useNotification } from '../contexts/NotificationContext';
 
 const API_BASE = `${API_BASE_URL}/api/v1/meetings`;
 
 const MeetingHistory = ({ token, onViewSummary }) => {
+  const { notify, confirm } = useNotification();
   const [meetings, setMeetings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,7 +34,11 @@ const MeetingHistory = ({ token, onViewSummary }) => {
 
   const handleDelete = async (e, meetingId) => {
     e.stopPropagation(); // Ngăn kích hoạt onClick xem chi tiết
-    if (!window.confirm("Bạn có chắc chắn muốn xóa cuộc họp này và toàn bộ dữ liệu tóm tắt/bóc băng liên quan không?")) return;
+    const confirmed = await confirm(
+      "Bạn có chắc chắn muốn xóa cuộc họp này và toàn bộ dữ liệu tóm tắt/bóc băng liên quan không?",
+      "Xác nhận xóa cuộc họp"
+    );
+    if (!confirmed) return;
     
     try {
       // Áp dụng hoạt cảnh GSAP trượt và thu nhỏ biến mất mượt mà trước khi xoá khỏi state
@@ -60,8 +66,9 @@ const MeetingHistory = ({ token, onViewSummary }) => {
       
       // Cập nhật lại danh sách local
       setMeetings(prev => prev.filter(m => m.id !== meetingId));
+      notify("Đã xóa cuộc họp thành công", "success");
     } catch (err) {
-      alert(err.message || 'Gặp lỗi trong quá trình xóa dữ liệu');
+      notify(err.message || 'Gặp lỗi trong quá trình xóa dữ liệu', 'error');
       fetchHistory(); // Tải lại danh sách nếu animation chạy lỗi mà api thất bại
     }
   };

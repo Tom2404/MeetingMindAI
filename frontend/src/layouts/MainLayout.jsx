@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useMeeting } from '../contexts/MeetingContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 /* ─── SVG Icons ─── */
 const IconMenu = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>;
@@ -20,6 +21,7 @@ const MainLayout = () => {
   const { isDark, theme, setTheme } = useTheme();
   const { currentUser, logout } = useAuth();
   const { meetingInfo, endMeeting } = useMeeting();
+  const { confirm } = useNotification();
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ const MainLayout = () => {
     navigate('/');
   };
 
-  const handleNewMeetingClick = () => {
+  const handleNewMeetingClick = async () => {
     if (meetingInfo && location.pathname !== '/room') {
       navigate('/room');
       closeSidebar();
@@ -41,7 +43,11 @@ const MainLayout = () => {
     }
     
     if (meetingInfo && location.pathname === '/room') {
-      if (!window.confirm("Bắt đầu cuộc họp mới sẽ đóng phiên làm việc hiện tại. Bạn có chắc chắn?")) return;
+      const confirmed = await confirm(
+        "Bắt đầu cuộc họp mới sẽ đóng phiên làm việc hiện tại. Bạn có chắc chắn?",
+        "Bắt đầu cuộc họp mới"
+      );
+      if (!confirmed) return;
     }
     
     endMeeting();

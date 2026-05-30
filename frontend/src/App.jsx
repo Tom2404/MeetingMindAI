@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MeetingProvider } from './contexts/MeetingContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+
 
 // Layout & Pages
 import MainLayout from './layouts/MainLayout';
@@ -85,9 +87,11 @@ const AppRoutes = () => {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <NotificationProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </NotificationProvider>
     </BrowserRouter>
   );
 }

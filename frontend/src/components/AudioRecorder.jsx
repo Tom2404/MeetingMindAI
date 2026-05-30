@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import API_BASE_URL from '../config';
+import { useNotification } from '../contexts/NotificationContext';
 
 const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
+  const { notify } = useNotification();
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const isRecordingRef = useRef(false);
@@ -45,7 +47,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
                 cleanupState();
              } else if (data.type === "error") {
                 setIsProcessing(false);
-                alert(data.message);
+                notify(data.message, 'error');
                 ws.close();
                 cleanupState();
              }
@@ -60,7 +62,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
       setSocketConnected(false); 
       webSocketRef.current = null; 
       if (event.code === 1008) {
-        alert("Đã đạt giới hạn 30 phút. Phiên ghi âm sẽ tự động dừng.");
+        notify("Đã đạt giới hạn 30 phút. Phiên ghi âm sẽ tự động dừng.", 'warning');
         stopRecordingAndSocket();
       }
     };
@@ -155,14 +157,14 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
           const newTime = p + 1;
           if (newTime >= 1800) { // 30 phút = 1800 giây
              stopRecordingAndSocket();
-             alert("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.");
+             notify("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.", 'warning');
           }
           return newTime;
         }); 
       }, 1000);
     } catch (err) {
       console.error("Lỗi cấp quyền Mic:", err);
-      alert("Bạn cần cấp quyền Microphone để ghi âm.");
+      notify("Bạn cần cấp quyền Microphone để ghi âm.", 'error');
     }
   };
 
@@ -178,7 +180,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
         const newTime = p + 1;
         if (newTime >= 1800) {
            stopRecordingAndSocket();
-           alert("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.");
+           notify("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.", 'warning');
         }
         return newTime;
       }); 

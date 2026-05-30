@@ -208,7 +208,7 @@ const AnalyticsPage = () => {
         gap: 'var(--space-2)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <h1 style={{ margin: 0, fontSize: 'var(--text-2xl)', fontWeight: 800, fontFamily: 'var(--font-display)', letterSpacing: '-0.5px' }}>Báo cáo & Thống kê Hiệu suất</h1>
+          <h1 style={{ margin: 0, fontSize: 'var(--text-2xl)', fontWeight: 800, fontFamily: 'var(--font-display)', letterSpacing: '-0.5px', color: 'white' }}>Báo cáo & Thống kê Hiệu suất</h1>
         </div>
         <p style={{ margin: 0, opacity: 0.9, fontSize: 'var(--text-sm)', maxWidth: '650px', lineHeight: 1.5 }}>
           Tổng hợp thông số họp hành của tài khoản và theo dõi sát sao tiến độ giải quyết công việc được trích xuất tự động bởi trí tuệ nhân tạo.

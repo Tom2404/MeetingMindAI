@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import API_BASE_URL from '../config';
 import { DEFAULT_TEMPLATES } from '../config/templates';
+import { useNotification } from '../contexts/NotificationContext';
 
 // ─── SVG Icons ───
 const IconEdit = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>;
@@ -224,6 +225,7 @@ const parseTranscriptToChunks = (text) => {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSummaryId, token, meetingInfo }) => {
+  const { notify, confirm } = useNotification();
   const [summaryData, setSummaryData]       = useState(null);
   const [isLoading, setIsLoading]           = useState(false);
   const [errorMsg, setErrorMsg]             = useState('');
@@ -393,7 +395,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       console.error("Lỗi khi lưu trạng thái task:", err);
       // Hoàn tác lại trạng thái UI nếu lưu thất bại
       setSummaryData(oldSummaryData);
-      alert("Không thể lưu trạng thái công việc. Vui lòng kiểm tra kết nối.");
+      notify("Không thể lưu trạng thái công việc. Vui lòng kiểm tra kết nối.", "error");
     }
   };
 
@@ -401,7 +403,8 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     if (!summaryData) return;
     
     // Xác nhận trước khi xóa (UI/UX)
-    if (!window.confirm("Bạn có chắc chắn muốn xóa công việc này không?")) return;
+    const confirmed = await confirm("Bạn có chắc chắn muốn xóa công việc này không?", "Xác nhận xóa công việc");
+    if (!confirmed) return;
     
     const oldSummaryData = { ...summaryData };
     const updated = summaryData.action_items.filter((item, i) => (item.id || i) !== uid);
@@ -427,11 +430,12 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       
       if (!res.ok) throw new Error('Xóa công việc thất bại');
       setIsSaved(true);
+      notify("Đã xóa công việc thành công", "success");
     } catch (err) {
       console.error("Lỗi khi xóa task:", err);
       // Hoàn tác lại trạng thái UI nếu lưu thất bại
       setSummaryData(oldSummaryData);
-      alert("Không thể xóa công việc. Vui lòng kiểm tra kết nối.");
+      notify("Không thể xóa công việc. Vui lòng kiểm tra kết nối.", "error");
     }
   };
 
@@ -468,8 +472,9 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       setSummaryData(editFormData);
       setIsEditing(false);
       setIsSaved(true);
+      notify("Đã lưu thay đổi thành công", "success");
     } catch (err) {
-      alert("Lỗi khi lưu: " + err.message);
+      notify("Lỗi khi lưu: " + err.message, "error");
     } finally {
       setIsSavingEdit(false);
     }

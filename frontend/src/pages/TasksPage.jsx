@@ -3,10 +3,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 import { gsap } from 'gsap';
+import { useNotification } from '../contexts/NotificationContext';
 
 const TasksPage = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const { notify, confirm } = useNotification();
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -143,15 +145,20 @@ const TasksPage = () => {
         body: JSON.stringify(editForm)
       });
       if (!res.ok) throw new Error("Lỗi cập nhật task");
+      notify("Đã cập nhật công việc thành công", "success");
     } catch (err) {
       console.error(err);
-      alert("Không thể lưu thay đổi vào cơ sở dữ liệu");
+      notify("Không thể lưu thay đổi vào cơ sở dữ liệu", "error");
       fetchTasks();
     }
   };
 
   const handleDeleteTask = async (meetingId, itemIndex) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn công việc này khỏi cuộc họp không?")) return;
+    const confirmed = await confirm(
+      "Bạn có chắc chắn muốn xóa vĩnh viễn công việc này khỏi cuộc họp không?",
+      "Xác nhận xóa công việc"
+    );
+    if (!confirmed) return;
     
     // Chạy hiệu ứng trượt mờ co lại card trước khi xóa khỏi state
     const cardEl = document.getElementById(`task-card-${meetingId}-${itemIndex}`);
@@ -177,9 +184,10 @@ const TasksPage = () => {
         }
       });
       if (!res.ok) throw new Error("Lỗi xóa task");
+      notify("Đã xóa công việc thành công", "success");
     } catch (err) {
       console.error(err);
-      alert("Không thể xóa công việc khỏi cơ sở dữ liệu");
+      notify("Không thể xóa công việc khỏi cơ sở dữ liệu", "error");
       fetchTasks();
     }
   };
