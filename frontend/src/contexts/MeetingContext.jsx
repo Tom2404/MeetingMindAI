@@ -12,6 +12,7 @@ export const MeetingProvider = ({ children }) => {
   const [currentChunks, setCurrentChunks] = useState([]);
   const [currentMeetingId, setCurrentMeetingId] = useState(null);
   const [wsMeetingId] = useState(() => `meeting-${Date.now()}-${Math.random().toString(36).slice(2,7)}`);
+  const [isSummarySaved, setIsSummarySaved] = useState(false);
 
   const setupMeeting = (info) => {
     setMeetingInfo(info);
@@ -19,6 +20,7 @@ export const MeetingProvider = ({ children }) => {
     setCurrentTranscript("");
     setCurrentChunks([]);
     setCurrentMeetingId(null);
+    setIsSummarySaved(false);
   };
 
   const endMeeting = () => {
@@ -27,6 +29,7 @@ export const MeetingProvider = ({ children }) => {
     setCurrentTranscript("");
     setCurrentChunks([]);
     setCurrentMeetingId(null);
+    setIsSummarySaved(false);
   };
 
   const updateTranscriptData = (transcript, chunks, meetingId) => {
@@ -43,9 +46,11 @@ export const MeetingProvider = ({ children }) => {
       currentChunks, 
       currentMeetingId, 
       wsMeetingId,
+      isSummarySaved,
       setupMeeting,
       endMeeting,
-      updateTranscriptData
+      updateTranscriptData,
+      setIsSummarySaved
     }}>
       {children}
     </MeetingContext.Provider>

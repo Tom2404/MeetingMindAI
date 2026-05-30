@@ -9,6 +9,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
   const isRecordingRef = useRef(false);
   const isPausedRef = useRef(false);
   const [time, setTime] = useState(0);
+  const timeRef = useRef(0);
   const [socketConnected, setSocketConnected] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -42,7 +43,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
              const data = JSON.parse(event.data);
              if (data.type === "final") {
                 setIsProcessing(false);
-                if (onCompleteData) onCompleteData(data.full_text, meetingId, data.chunks);
+                if (onCompleteData) onCompleteData(data.full_text, meetingId, data.chunks, timeRef.current);
                 ws.close();
                 cleanupState();
              } else if (data.type === "error") {
@@ -70,7 +71,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
   };
 
   const cleanupState = () => {
-    clearInterval(timerRef.current); setTime(0);
+    clearInterval(timerRef.current); setTime(0); timeRef.current = 0;
     setIsRecording(false); isRecordingRef.current = false;
     setIsPaused(false); isPausedRef.current = false;
     setIsProcessing(false);
@@ -155,6 +156,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
       timerRef.current = setInterval(() => { 
         setTime(p => {
           const newTime = p + 1;
+          timeRef.current = newTime;
           if (newTime >= 1800) { // 30 phút = 1800 giây
              stopRecordingAndSocket();
              notify("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.", 'warning');
@@ -178,6 +180,7 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
     timerRef.current = setInterval(() => { 
       setTime(p => {
         const newTime = p + 1;
+        timeRef.current = newTime;
         if (newTime >= 1800) {
            stopRecordingAndSocket();
            notify("Ghi âm đã tự động dừng vì đạt giới hạn 30 phút.", 'warning');
@@ -193,6 +196,11 @@ const AudioRecorder = ({ meetingId = "test-meeting", onCompleteData }) => {
       mediaRecorderRef.current.processor?.disconnect();
       mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
       mediaRecorderRef.current = null;
+    }
+    
+    if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
     }
     
     if (webSocketRef.current?.readyState === WebSocket.OPEN) {

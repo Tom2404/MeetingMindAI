@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMeeting } from '../contexts/MeetingContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +19,9 @@ const MeetingRoomPage = () => {
     currentMeetingId, 
     wsMeetingId,
     endMeeting,
-    updateTranscriptData
+    updateTranscriptData,
+    isSummarySaved,
+    setIsSummarySaved
   } = useMeeting();
   const { confirm } = useNotification();
   const navigate = useNavigate();
@@ -33,6 +35,11 @@ const MeetingRoomPage = () => {
   if (!meetingInfo) return null;
 
   const handleBackToSetup = async () => { 
+    if (isSummarySaved) {
+      endMeeting();
+      navigate('/');
+      return;
+    }
     const confirmed = await confirm(
       "Hủy phiên làm việc hiện tại? Các dữ liệu chưa lưu sẽ bị mất.",
       "Xác nhận hủy phiên"
@@ -53,7 +60,7 @@ const MeetingRoomPage = () => {
     }
   };
 
-  const handleProcessComplete = async (transcript, meetingId, chunks = []) => { 
+  const handleProcessComplete = async (transcript, meetingId, chunks = [], durationSeconds = 0) => { 
     let savedMeetingId = meetingId;
     
     // Auto-save realtime transcript if it hasn't been saved yet (string format)
@@ -66,7 +73,8 @@ const MeetingRoomPage = () => {
                 body: JSON.stringify({
                     title: meetingInfo?.meetingName || `Bản bóc băng Realtime ${new Date().toLocaleTimeString('vi-VN')}`,
                     transcript: transcript,
-                    chunks: chunks
+                    chunks: chunks,
+                    duration_seconds: durationSeconds
                 })
             });
             if (res.ok) {
@@ -124,7 +132,7 @@ const MeetingRoomPage = () => {
           </div>
 
           <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-            {hasAudio && (
+            {hasAudio && !isSummarySaved && (
               <button 
                 className="mm-btn mm-btn--sm mm-btn--ghost" 
                 onClick={handleResetAudioInput}
@@ -135,14 +143,26 @@ const MeetingRoomPage = () => {
                 Thay đổi tệp
               </button>
             )}
-            <button 
-              className="mm-btn mm-btn--sm mm-btn--secondary" 
-              onClick={handleBackToSetup}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              Hủy phiên
-            </button>
+            {isSummarySaved ? (
+              <button 
+                className="mm-btn mm-btn--sm mm-btn--success" 
+                onClick={handleBackToSetup}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--success-500)', color: 'white', border: 'none' }}
+                title="Cuộc họp đã được lưu thành công! Quay lại Trang chủ."
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                Hoàn thành
+              </button>
+            ) : (
+              <button 
+                className="mm-btn mm-btn--sm mm-btn--secondary" 
+                onClick={handleBackToSetup}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                Hủy phiên
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -158,7 +178,13 @@ const MeetingRoomPage = () => {
                   Tải lên tệp âm thanh cuộc họp
                 </div>
               </div>
-              <AudioUpload onCompleteData={handleProcessComplete} token={token} />
+              <AudioUpload 
+                onCompleteData={handleProcessComplete} 
+                token={token} 
+                meetingName={meetingInfo.meetingName}
+                host={meetingInfo.host}
+                participants={meetingInfo.participants}
+              />
             </div>
           )}
 
@@ -193,6 +219,7 @@ const MeetingRoomPage = () => {
               activeChunks={currentChunks}
               token={token} 
               meetingInfo={meetingInfo} 
+              onSaveStateChange={setIsSummarySaved}
             />
           </div>
         </div>

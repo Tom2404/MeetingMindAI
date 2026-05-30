@@ -23,6 +23,22 @@ if not os.path.exists(UPLOAD_DIR):
 # Khởi tạo bảng CSDL khi start server (tạo bảng mới nếu chưa có)
 Base.metadata.create_all(bind=engine)
 
+# Thực hiện migrate bổ sung cột cho SQLite nếu chưa tồn tại
+from sqlalchemy import text
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE meetings ADD COLUMN host VARCHAR(255)"))
+        conn.commit()
+        print("[DB-Migration] Added column 'host' to 'meetings' table.")
+    except Exception:
+        pass
+    try:
+        conn.execute(text("ALTER TABLE meetings ADD COLUMN participants TEXT"))
+        conn.commit()
+        print("[DB-Migration] Added column 'participants' to 'meetings' table.")
+    except Exception:
+        pass
+
 app = FastAPI(
     title="MeetingMind AI API",
     description="Backend xử lý STT, WebSocket Audio Stream, LLM Summary và Xác thực người dùng",

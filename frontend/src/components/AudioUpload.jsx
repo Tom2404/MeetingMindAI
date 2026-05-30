@@ -32,7 +32,7 @@ const IconFile = () => (
   </svg>
 );
 
-const AudioUpload = ({ onCompleteData, token }) => {
+const AudioUpload = ({ onCompleteData, token, meetingName, host, participants }) => {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
@@ -93,8 +93,18 @@ const AudioUpload = ({ onCompleteData, token }) => {
   const handleUpload = () => {
     if (!file) return;
     setIsUploading(true); setError(''); setUploadStatus('uploading');
+    
+    // Đổi tên file thành ASCII để tránh lỗi decode của python-multipart trong FastAPI
+    const extension = file.name.split('.').pop() || 'mp3';
+    const safeFile = new File([file], `audio_file.${extension}`, { type: file.type });
+    
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', safeFile);
+    formData.append('original_name', file.name);
+    if (meetingName) formData.append('title', meetingName);
+    if (host) formData.append('host', host);
+    if (participants) formData.append('participants', participants);
+    
     const xhr = new XMLHttpRequest();
     xhrRef.current = xhr;
     xhr.upload.addEventListener('progress', (event) => {

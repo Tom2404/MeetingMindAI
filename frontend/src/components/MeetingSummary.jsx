@@ -188,21 +188,34 @@ const parseTranscriptToChunks = (text) => {
   lines.forEach(line => {
     if (!line.trim()) return;
     
+    // 1. Làm sạch mốc thời gian (timestamp) ở đầu dòng nếu có (ví dụ: 00:06, [00:15], - 00:06...)
+    const cleanLine = line.replace(/^\s*(?:-\s*)?(?:\[?\d{1,2}:\d{2}(?::\d{2})?\]?|(?:\d{1,2}:\d{2}(?::\d{2})?))\s*[-–—]?\s*/, '');
+    
     // Pattern 1: Matches [Speaker X]: Text... or [Name]: Text...
-    const bracketMatch = line.match(/^\[([^\]]+)\]:\s*(.*)$/);
+    const bracketMatch = cleanLine.match(/^\[([^\]]+)\]:\s*(.*)$/);
     if (bracketMatch) {
       parsedChunks.push({
-        speaker: bracketMatch[1].trim(),
+        speaker: bracketMatch[1].replace(/[*[\]]/g, '').trim(),
         text: bracketMatch[2].trim()
       });
       return;
     }
     
-    // Pattern 2: Matches Speaker X: Text... or Name: Text...
-    const colonMatch = line.match(/^([^:]+):\s*(.*)$/);
+    // Pattern 2: Matches **Speaker X**: Text... or **Name**: Text...
+    const boldMatch = cleanLine.match(/^\*\*([^*:]+)\*\*:\s*(.*)$/);
+    if (boldMatch) {
+      parsedChunks.push({
+        speaker: boldMatch[1].trim(),
+        text: boldMatch[2].trim()
+      });
+      return;
+    }
+    
+    // Pattern 3: Matches Speaker X: Text... or Name: Text...
+    const colonMatch = cleanLine.match(/^([^:]+):\s*(.*)$/);
     if (colonMatch && !colonMatch[1].includes('[')) {
       parsedChunks.push({
-        speaker: colonMatch[1].trim(),
+        speaker: colonMatch[1].replace(/[*[\]]/g, '').trim(),
         text: colonMatch[2].trim()
       });
       return;
@@ -210,11 +223,11 @@ const parseTranscriptToChunks = (text) => {
     
     // Fallback: If no match, add to the previous chunk, or add as Speaker Unknown
     if (parsedChunks.length > 0) {
-      parsedChunks[parsedChunks.length - 1].text += '\n' + line.trim();
+      parsedChunks[parsedChunks.length - 1].text += '\n' + cleanLine.trim();
     } else {
       parsedChunks.push({
         speaker: "Người nói",
-        text: line.trim()
+        text: cleanLine.trim()
       });
     }
   });
@@ -224,7 +237,7 @@ const parseTranscriptToChunks = (text) => {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSummaryId, token, meetingInfo }) => {
+const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSummaryId, token, meetingInfo, onSaveStateChange }) => {
   const { notify, confirm } = useNotification();
   const [summaryData, setSummaryData]       = useState(null);
   const [isLoading, setIsLoading]           = useState(false);
@@ -242,6 +255,12 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  useEffect(() => {
+    if (onSaveStateChange) {
+      onSaveStateChange(isSaved);
+    }
+  }, [isSaved, onSaveStateChange]);
 
   useEffect(() => { if (viewingSummaryId) loadSavedSummary(viewingSummaryId); }, [viewingSummaryId]);
 
@@ -480,6 +499,39 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     }
   };
 
+  const handleSaveSummaryToDb = async () => {
+    if (!summaryData) return;
+    setIsLoading(true);
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const parsedMeetingId = parseInt(meetingId, 10);
+      if (isNaN(parsedMeetingId)) {
+        throw new Error("Không tìm thấy ID cuộc họp hợp lệ.");
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/${parsedMeetingId}/summary`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          summary_text: summaryData.summary_text,
+          decisions: summaryData.decisions,
+          action_items: summaryData.action_items
+        })
+      });
+      
+      if (!res.ok) throw new Error('Không thể lưu cuộc họp lên máy chủ.');
+      
+      setIsSaved(true);
+      notify("Đã lưu cuộc họp và đồng bộ công việc lên Kanban thành công!", "success");
+    } catch (err) {
+      notify("Lỗi lưu cuộc họp: " + err.message, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleExportTxt = () => {
     if (!summaryData) return;
     const title = meetingInfo?.meetingName || meetingId || 'Meeting';
@@ -516,7 +568,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const actionItems = summaryData?.action_items || [];
   const keyTopics = summaryData?.key_topics || [];
   const completedCount = actionItems.filter(i => i.completed).length;
-  const hasSummary = !!(summaryData && summaryData.id);
+  const hasSummary = !!summaryData;
 
   const renderAiSelector = () => {
     return (
@@ -600,7 +652,32 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       <div className="summary__header no-print">
         <div className="summary__title">Kết quả Khai thác ({title})</div>
         <div className="summary__actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {isSaved && <span className="mm-badge mm-badge--saved" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconSave/> Đã lưu</span>}
+          {isSaved ? (
+            <span className="mm-badge mm-badge--saved" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconSave/> Đã lưu</span>
+          ) : (
+            summaryData && (
+              <button 
+                className="mm-btn mm-btn--sm mm-btn--success animate-pulse" 
+                onClick={handleSaveSummaryToDb}
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  padding: '6px 14px', 
+                  background: 'var(--success-500)', 
+                  color: 'white', 
+                  border: 'none',
+                  borderRadius: 'var(--radius-lg)',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(16,185,129,0.25)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <IconSave /> Lưu kết quả
+              </button>
+            )
+          )}
         </div>
       </div>
 
