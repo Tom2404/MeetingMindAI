@@ -312,7 +312,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   };
 
   const handleStartSummarize = async (overrideProvider) => {
-    if (!activeTranscript) return;
+    if (!editableTranscript && !activeTranscript) return;
     setIsLoading(true); setErrorMsg(''); setErrorType(''); setLoadingSeconds(0); setIsSaved(false);
     try {
       const headers = { 'Content-Type': 'application/json' };
@@ -516,6 +516,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const actionItems = summaryData?.action_items || [];
   const keyTopics = summaryData?.key_topics || [];
   const completedCount = actionItems.filter(i => i.completed).length;
+  const hasSummary = !!(summaryData && summaryData.id);
 
   const renderAiSelector = () => {
     return (
@@ -650,7 +651,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
           >
             Văn bản bóc băng
           </button>
-          {summaryData && summaryData.id && (
+          {hasSummary && (
             <>
               <button 
                 style={{ 
@@ -682,7 +683,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         </div>
       )}
 
-      {!summaryData && !editableTranscript && !isLoading && !errorMsg && (
+      {!hasSummary && !editableTranscript && !isLoading && !errorMsg && (
         <div className="mm-empty no-print glass-panel">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-tertiary)', marginBottom: '16px' }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           <div className="mm-empty__title">Chưa có dữ liệu tóm tắt</div>
@@ -691,11 +692,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       )}
 
       {editableTranscript && !isLoading && !errorMsg && (
-        <div className={(activeTab === 'split' || !summaryData) ? "summary-desktop-split" : "summary-desktop-single"}>
+        <div className={(activeTab === 'split' || !hasSummary) ? "summary-desktop-split" : "summary-desktop-single"}>
           
           {/* CỘT TRÁI: Transcript Section */}
-          {(activeTab === 'transcript' || activeTab === 'split' || !summaryData) && (
-            <div className={`summary-split-left ${summaryData && summaryData.id && activeTab !== 'transcript' && activeTab !== 'split' ? 'summary-mobile-tab-inactive' : ''}`}>
+          {(activeTab === 'transcript' || activeTab === 'split' || !hasSummary) && (
+            <div className={`summary-split-left ${hasSummary && activeTab !== 'transcript' && activeTab !== 'split' ? 'summary-mobile-tab-inactive' : ''}`}>
             <div className="mm-card" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-default)', boxShadow: 'none', display: 'flex', flexDirection: 'column', height: '100%', margin: 0 }}>
               <div style={{ marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: 'var(--space-3)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                 <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
@@ -788,7 +789,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
             </div>
 
             {/* Trên Mobile: Nếu chưa có summaryData, hiển thị AI selector ở cuối cột này */}
-            {(!summaryData || !summaryData.id) && (
+            {!hasSummary && (
               <div className="mobile-only-ai-selector" style={{ marginTop: 'var(--space-4)' }}>
                 {renderAiSelector()}
               </div>
@@ -797,11 +798,11 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
           )}
 
           {/* CỘT PHẢI: Summary Section hoặc AI Selector */}
-          {(activeTab === 'summary' || activeTab === 'split' || !summaryData) && (
-            <div className={`summary-split-right ${summaryData && summaryData.id && activeTab !== 'summary' && activeTab !== 'split' ? 'summary-mobile-tab-inactive' : ''}`}>
+          {(activeTab === 'summary' || activeTab === 'split' || !hasSummary) && (
+            <div className={`summary-split-right ${hasSummary && activeTab !== 'summary' && activeTab !== 'split' ? 'summary-mobile-tab-inactive' : ''}`}>
             
             {/* Trường hợp 1: Đã có summaryData */}
-            {summaryData && summaryData.id ? (
+            {hasSummary ? (
               <div className="summary__sections animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)' }}>
                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
