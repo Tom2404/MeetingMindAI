@@ -5,7 +5,7 @@ router = APIRouter(prefix="/api/v1", tags=["health"])
 
 # URL kiểm tra Ollama — endpoint /api/tags trả danh sách model đã cài
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL = "llama3.2"
+OLLAMA_MODEL = "qwen2.5:7b-instruct"
 
 
 def _check_ollama() -> dict:
@@ -33,7 +33,7 @@ def _check_ollama() -> dict:
             return {
                 "ok": True,
                 "model_found": False,
-                "message": "Ollama đang chạy nhưng chưa có model nào được cài. Hãy chạy: ollama pull llama3.2",
+                "message": "Ollama đang chạy nhưng chưa có model nào được cài. Hãy chạy: ollama pull qwen2.5:7b-instruct",
                 "models": []
             }
 
