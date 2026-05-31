@@ -561,6 +561,288 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     URL.revokeObjectURL(url);
   };
 
+  const handleExportMarkdown = () => {
+    if (!summaryData) return;
+    const title = meetingInfo?.meetingName || meetingId || 'Meeting';
+    let md = `# BIÊN BẢN CUỘC HỌP: ${title}\n\n`;
+    if (meetingInfo) {
+      if (meetingInfo.host) md += `**Người chủ trì:** ${meetingInfo.host}  \n`;
+      if (meetingInfo.participants) md += `**Thành phần tham dự:** ${meetingInfo.participants}  \n`;
+      md += '\n';
+    }
+    md += `## 1. Tóm Tắt Cuộc Họp\n${summaryData.summary_text}\n\n`;
+    
+    if (keyTopics && keyTopics.length > 0) {
+      md += `**Chủ đề chính:** ${keyTopics.map(t => `\`${t}\``).join(', ')}\n\n`;
+    }
+    
+    md += `## 2. Các Quyết Định Được Chốt\n`;
+    if (decisions.length > 0) {
+      decisions.forEach((d, i) => {
+        if (typeof d === 'string') {
+          md += `${i + 1}. ${d}\n`;
+        } else {
+          md += `${i + 1}. **[${d.subject}]** ${d.action} → *Kết quả:* ${d.outcome}\n`;
+        }
+      });
+    } else {
+      md += `*Không có quyết định nào.*\n`;
+    }
+    md += `\n## 3. Danh Sách Công Việc (Action Items)\n`;
+    if (actionItems.length > 0) {
+      actionItems.forEach(item => {
+        const chk = item.completed ? '[x]' : '[ ]';
+        const pri = item.priority ? `**[${item.priority.toUpperCase()}]** ` : '';
+        md += `- ${chk} ${pri}${item.task_name} (Phụ trách: \`${item.assignee || 'Trống'}\` | Hạn: \`${item.deadline || 'Trống'}\`)\n`;
+      });
+    } else {
+      md += `*Không có công việc nào được phân công.*\n`;
+    }
+    
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `BienBanHop_${title.replace(/\s+/g, '_')}.md`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportDocx = () => {
+    if (!summaryData) return;
+    const title = meetingInfo?.meetingName || meetingId || 'Meeting';
+    
+    // Tạo cấu trúc HTML có style chuyên nghiệp để MS Word đọc trực tiếp
+    let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">`;
+    html += `<head><meta charset="utf-8"><title>${title}</title>`;
+    html += `<style>
+      body { font-family: 'Segoe UI', Arial, sans-serif; color: #333333; line-height: 1.6; padding: 20px; }
+      h1 { color: #1a73e8; font-size: 24pt; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 20px; font-weight: bold; }
+      h2 { color: #1a73e8; font-size: 16pt; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; font-weight: bold; }
+      .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; background-color: #f8f9fa; }
+      .meta-table td { padding: 10px; border: 1px solid #e5e7eb; font-size: 10.5pt; }
+      .meta-label { font-weight: bold; color: #5f6368; width: 150px; }
+      .section-card { padding: 15px; border-left: 6px solid #1a73e8; background-color: #f8f9fa; margin-bottom: 20px; border-radius: 4px; }
+      .section-card--blue { border-left-color: #1a73e8; }
+      .section-card--green { border-left-color: #2e7d32; }
+      .section-card--red { border-left-color: #d32f2f; }
+      .section-card--purple { border-left-color: #7b1fa2; }
+      .task-item { margin-bottom: 10px; font-size: 11pt; }
+      .task-item.completed { text-decoration: line-through; color: #888888; }
+    </style></head><body>`;
+    
+    html += `<h1>BIÊN BẢN CUỘC HỌP</h1>`;
+    
+    // Metadata table
+    html += `<table class="meta-table">`;
+    html += `<tr><td class="meta-label">Tiêu đề</td><td><b>${title}</b></td></tr>`;
+    if (meetingInfo) {
+      if (meetingInfo.host) html += `<tr><td class="meta-label">Người chủ trì</td><td>${meetingInfo.host}</td></tr>`;
+      if (meetingInfo.participants) html += `<tr><td class="meta-label">Thành phần</td><td>${meetingInfo.participants}</td></tr>`;
+    }
+    html += `<tr><td class="meta-label">Ngày tạo</td><td>${new Date().toLocaleDateString('vi-VN')}</td></tr>`;
+    html += `</table>`;
+    
+    // Section 1: Summary
+    html += `<div class="section-card section-card--blue">`;
+    html += `<h2>1. Tóm Tắt Nội Dung</h2>`;
+    html += `<p>${summaryData.summary_text.replace(/\n/g, '<br>')}</p>`;
+    if (keyTopics && keyTopics.length > 0) {
+      html += `<p><b>Chủ đề chính:</b> ${keyTopics.join(', ')}</p>`;
+    }
+    html += `</div>`;
+    
+    // Section 2: Decisions
+    html += `<div class="section-card section-card--green">`;
+    html += `<h2>2. Quyết Định Được Thống Nhất</h2>`;
+    if (decisions.length > 0) {
+      html += `<ol>`;
+      decisions.forEach(d => {
+        if (typeof d === 'string') {
+          html += `<li>${d}</li>`;
+        } else {
+          html += `<li><b>[${d.subject}]</b> ${d.action} &rarr; <i>Kết quả:</i> ${d.outcome}</li>`;
+        }
+      });
+      html += `</ol>`;
+    } else {
+      html += `<p><i>Không có quyết định thống nhất nào được ghi nhận.</i></p>`;
+    }
+    html += `</div>`;
+    
+    // Section 3: Action Items
+    html += `<div class="section-card section-card--red">`;
+    html += `<h2>3. Danh Sách Công Việc Bàn Giao</h2>`;
+    if (actionItems.length > 0) {
+      html += `<ul>`;
+      actionItems.forEach(item => {
+        const completedText = item.completed ? ' (Đã hoàn thành)' : ' (Chưa hoàn thành)';
+        const priorityText = item.priority ? ` [Độ ưu tiên: ${item.priority.toUpperCase()}]` : '';
+        html += `<li class="task-item ${item.completed ? 'completed' : ''}">`;
+        html += `<b>${item.task_name}</b>${priorityText} <br> &nbsp;&nbsp;&nbsp;&nbsp; Phụ trách: <u>${item.assignee || 'Trống'}</u> | Hạn: <u>${item.deadline || 'Trống'}</u> ${completedText}`;
+        html += `</li>`;
+      });
+      html += `</ul>`;
+    } else {
+      html += `<p><i>Không có công việc nào được bàn giao.</i></p>`;
+    }
+    html += `</div>`;
+    
+    // Section 4: Speaker stats
+    const stats = calculateSpeakerInsights();
+    if (stats.length > 0) {
+      html += `<div class="section-card section-card--purple">`;
+      html += `<h2>4. Tỷ Lệ Phát Biểu Của Thành Viên</h2>`;
+      html += `<ul>`;
+      stats.forEach(item => {
+        html += `<li><b>${item.speaker}</b>: ${item.percentage}% (${item.charCount.toLocaleString()} ký tự nói)</li>`;
+      });
+      html += `</ul>`;
+      html += `</div>`;
+    }
+    
+    // Add Signature table for Word
+    html += `<table style="width: 100%; margin-top: 50px; border-collapse: collapse; border: none;">`;
+    html += `<tr style="border: none;">`;
+    html += `<td style="width: 50%; text-align: center; border: none; font-size: 11pt; padding: 10px;">`;
+    html += `<b>NGƯỜI GHI BIÊN BẢN</b><br>`;
+    html += `<span style="color: #666666; font-size: 9.5pt;">(Ký, ghi rõ họ tên)</span>`;
+    html += `<br><br><br><br>`;
+    html += `___________________________`;
+    html += `</td>`;
+    html += `<td style="width: 50%; text-align: center; border: none; font-size: 11pt; padding: 10px;">`;
+    html += `<b>CHỦ TRÌ CUỘC HỌP</b><br>`;
+    html += `<span style="color: #666666; font-size: 9.5pt;">(Ký, ghi rõ họ tên)</span>`;
+    html += `<br><br><br><br>`;
+    html += `___________________________`;
+    html += `</td>`;
+    html += `</tr>`;
+    html += `</table>`;
+    
+    html += `</body></html>`;
+    
+    // Download as a word document blob
+    const blob = new Blob(['\ufeff' + html], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `BienBanHop_${title.replace(/\s+/g, '_')}.doc`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const calculateSpeakerInsights = () => {
+    if (!transcriptChunks || transcriptChunks.length === 0) return [];
+    
+    const speakerStats = {};
+    let totalLength = 0;
+    
+    transcriptChunks.forEach(chunk => {
+      const speaker = chunk.speaker || 'Người nói ẩn danh';
+      const length = chunk.text ? chunk.text.trim().length : 0;
+      if (length > 0) {
+        speakerStats[speaker] = (speakerStats[speaker] || 0) + length;
+        totalLength += length;
+      }
+    });
+    
+    if (totalLength === 0) return [];
+    
+    return Object.keys(speakerStats).map(speaker => {
+      const charCount = speakerStats[speaker];
+      const percentage = Math.round((charCount / totalLength) * 100);
+      return {
+        speaker,
+        charCount,
+        percentage
+      };
+    }).sort((a, b) => b.charCount - a.charCount);
+  };
+
+  const renderSpeakerInsights = () => {
+    const stats = calculateSpeakerInsights();
+    if (stats.length === 0) return null;
+    
+    const allSpeakers = [...new Set(transcriptChunks.map(c => c.speaker))];
+    
+    return (
+      <div className="summary__section summary__section--purple" style={{ 
+        borderLeftColor: 'var(--primary-500)',
+        background: 'var(--bg-surface)',
+        borderRadius: 'var(--radius-xl)',
+        padding: 'var(--space-4)',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        <div className="summary__section-header" style={{ marginBottom: 'var(--space-3)' }}>
+          <span className="summary__section-icon" style={{ color: 'var(--primary-500)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>
+          </span>
+          <span className="summary__section-title" style={{ color: 'var(--primary-500)' }}>Phân Tích Tương Tác & Thời Lượng Phát Biểu</span>
+        </div>
+        
+        <p style={{ margin: '0 0 var(--space-3) 0', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+          Biểu đồ tỷ lệ đóng góp ý kiến của từng thành viên dựa trên khối lượng từ ngữ phát biểu trong bản bóc băng
+        </p>
+
+        {/* Stacked bar chart */}
+        <div style={{ 
+          height: '16px', 
+          width: '100%', 
+          display: 'flex', 
+          borderRadius: '8px', 
+          overflow: 'hidden', 
+          background: 'var(--bg-surface-hover)',
+          marginBottom: 'var(--space-4)',
+          border: '1px solid var(--border-default)'
+        }}>
+          {stats.map((item, idx) => {
+            const style = getSpeakerStyle(item.speaker, allSpeakers);
+            return (
+              <div 
+                key={idx}
+                style={{
+                  width: `${item.percentage}%`,
+                  height: '100%',
+                  background: style.main,
+                  transition: 'width 0.5s ease',
+                  cursor: 'pointer'
+                }}
+                title={`${item.speaker}: ${item.percentage}%`}
+              />
+            );
+          })}
+        </div>
+
+        {/* Legend grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-3)' }}>
+          {stats.map((item, idx) => {
+            const style = getSpeakerStyle(item.speaker, allSpeakers);
+            return (
+              <div key={idx} style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                padding: 'var(--space-2) var(--space-3)', 
+                background: 'var(--bg-surface-hover)', 
+                borderRadius: '8px',
+                border: '1px solid var(--border-default)'
+              }}>
+                <div style={{ 
+                  width: '10px', 
+                  height: '10px', 
+                  borderRadius: '50%', 
+                  background: style.main,
+                  boxShadow: `0 0 8px ${style.main}`
+                }} />
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-primary)' }}>{item.speaker}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{item.charCount.toLocaleString()} ký tự nói</span>
+                </div>
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>{item.percentage}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const title = meetingInfo?.meetingName || meetingId || 'Chưa đặt tên';
   
   // Data for viewing
@@ -649,6 +931,202 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   return (
     <div className="summary">
+      <style>{`
+        /* Screen vs Print handling */
+        @media screen {
+          .print-only-container {
+            display: none !important;
+          }
+        }
+
+        @media print {
+          /* Hide the entire screen application and UI elements */
+          #root, .summary, .setup-form, .app, header, nav, footer, .no-print, button, .mm-tabs, 
+          .setup-form-columns, .setup-form-left, .setup-form-right, .recorder, .mm-modal, 
+          .summary__header, .summary__actions, .mm-badge, .desktop-only-tab-btn, .mobile-only-tabs,
+          .mobile-only-ai-selector, .desktop-only-ai-selector {
+            display: none !important;
+          }
+          
+          /* Show only the print container and force block layout */
+          .print-only-container {
+            display: block !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
+            font-size: 11pt !important;
+            line-height: 1.5 !important;
+            padding: 10px !important;
+            width: 100% !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+          }
+          
+          .print-header {
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #1a73e8;
+            padding-bottom: 12px;
+          }
+          
+          .print-header h1 {
+            font-size: 20pt;
+            font-weight: bold;
+            color: #1a73e8;
+            margin: 0 0 6px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .print-subtitle {
+            font-size: 9.5pt;
+            color: #4b5563;
+            font-style: italic;
+          }
+          
+          /* Metadata Grid */
+          .print-meta-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+            font-size: 10pt;
+            background: #f9fafb;
+          }
+          
+          .print-meta-table td {
+            border: 1px solid #d1d5db;
+            padding: 8px 12px;
+            vertical-align: middle;
+          }
+          
+          .print-meta-label {
+            font-weight: bold;
+            color: #374151;
+            background: #f3f4f6;
+            width: 130px;
+          }
+          
+          .print-meta-value {
+            color: #111827;
+          }
+          
+          /* Sections */
+          .print-section {
+            margin-bottom: 22px;
+            page-break-inside: avoid;
+          }
+          
+          .print-section-title {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #1a73e8;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 6px;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+          }
+          
+          .print-section-content {
+            font-size: 10.5pt;
+            line-height: 1.6;
+            color: #1f2937;
+            padding: 0 4px;
+          }
+          
+          /* Tables */
+          .print-tasks-table, .print-speaker-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            font-size: 9.5pt;
+          }
+          
+          .print-tasks-table th, .print-speaker-table th {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 8px 10px;
+            font-weight: bold;
+            color: #374151;
+            text-align: center;
+          }
+          
+          .print-tasks-table td, .print-speaker-table td {
+            border: 1px solid #d1d5db;
+            padding: 8px 10px;
+            vertical-align: middle;
+          }
+          
+          .print-tasks-table tr.completed td {
+            text-decoration: line-through;
+            color: #9ca3af;
+          }
+          
+          /* Badges */
+          .print-priority-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 7.5pt;
+            font-weight: bold;
+            margin-left: 8px;
+            text-transform: uppercase;
+            border: 1px solid currentColor;
+          }
+          
+          .print-priority-high {
+            color: #f43f5e;
+            background: #fff5f5;
+          }
+          
+          .print-priority-medium {
+            color: #f59e0b;
+            background: #fffbeb;
+          }
+          
+          .print-priority-low {
+            color: #10b981;
+            background: #f0fdf4;
+          }
+          
+          /* Signatures */
+          .print-signatures-container {
+            margin-top: 35px;
+            page-break-inside: avoid;
+          }
+          
+          .print-signature-date {
+            text-align: right;
+            font-size: 10pt;
+            margin-bottom: 20px;
+            font-style: italic;
+            color: #374151;
+          }
+          
+          .print-signatures {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+          }
+          
+          .signature-col {
+            width: 45%;
+            text-align: center;
+          }
+          
+          .signature-title {
+            font-weight: bold;
+            font-size: 10.5pt;
+            color: #111827;
+            margin-bottom: 55px;
+            text-transform: uppercase;
+          }
+          
+          .signature-space {
+            font-size: 9pt;
+            color: #6b7280;
+          }
+        }
+      `}</style>
       <div className="summary__header no-print">
         <div className="summary__title">Kết quả Khai thác ({title})</div>
         <div className="summary__actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -890,7 +1368,9 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                       <>
                         <button className="mm-btn mm-btn--sm mm-btn--primary" onClick={startEditing}><IconEdit/> Sửa</button>
                         <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportTxt}><IconFileText/> Xuất TXT</button>
-                        <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => window.print()}>In</button>
+                        <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportMarkdown} style={{ background: 'var(--primary-600)', color: 'white', borderColor: 'var(--primary-600)' }}><IconFileText/> Xuất MD</button>
+                        <button className="mm-btn mm-btn--sm mm-btn--secondary" onClick={handleExportDocx} style={{ background: 'var(--success-600)', color: 'white', borderColor: 'var(--success-600)' }}><IconFileText/> Xuất Word</button>
+                        <button className="mm-btn mm-btn--sm mm-btn--ghost" onClick={() => window.print()} style={{ color: 'var(--danger-500)', borderColor: 'var(--danger-500)' }}>Xuất PDF / In</button>
                       </>
                     ) : (
                       <>
@@ -1069,6 +1549,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                     </div>
                   )}
                 </div>
+                {!isEditing && renderSpeakerInsights()}
               </div>
             ) : (
               /* Trường hợp 2: Chưa có summaryData -> Hiển thị AI Selector ở cột phải (trên Desktop) */
@@ -1082,6 +1563,160 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
         </div>
       )}
+
+      {/* DÀNH RIÊNG CHO IN ẤN (Tự động kích hoạt khi chọn Xuất PDF / In) */}
+      <div className="print-only-container">
+        <div className="print-header">
+          <h1>BIÊN BẢN CUỘC HỌP</h1>
+          <div className="print-subtitle">Hệ thống tóm tắt & quản lý cuộc họp MeetingMind AI</div>
+        </div>
+        
+        <table className="print-meta-table">
+          <tbody>
+            <tr>
+              <td className="print-meta-label">Tên cuộc họp</td>
+              <td className="print-meta-value" colSpan={3}><strong>{title}</strong></td>
+            </tr>
+            <tr>
+              <td className="print-meta-label">Người chủ trì</td>
+              <td className="print-meta-value">{meetingInfo?.host || 'Chưa xác định'}</td>
+              <td className="print-meta-label">Ngày họp</td>
+              <td className="print-meta-value">{meetingInfo?.date || new Date().toLocaleDateString('vi-VN')}</td>
+            </tr>
+            <tr>
+              <td className="print-meta-label">Người tham dự</td>
+              <td className="print-meta-value" colSpan={3}>{meetingInfo?.participants || 'Chưa xác định'}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {summaryData ? (
+          <>
+            <div className="print-section">
+              <h2 className="print-section-title">1. TÓM TẮT NỘI DUNG CUỘC HỌP</h2>
+              <div className="print-section-content" style={{ whiteSpace: 'pre-line' }}>
+                {summaryData.summary_text}
+              </div>
+              {keyTopics && keyTopics.length > 0 && (
+                <div style={{ marginTop: '12px', fontSize: '10.5pt', color: '#4b5563' }}>
+                  <strong>Chủ đề cốt lõi:</strong> {keyTopics.join(', ')}
+                </div>
+              )}
+            </div>
+
+            <div className="print-section">
+              <h2 className="print-section-title">2. CÁC QUYẾT ĐỊNH ĐÃ THỐNG NHẤT</h2>
+              <div className="print-section-content">
+                {decisions.length > 0 ? (
+                  <ol style={{ margin: '0', paddingLeft: '20px' }}>
+                    {decisions.map((d, i) => {
+                      if (typeof d === 'string') {
+                        return <li key={i} style={{ marginBottom: '8px' }}>{d}</li>;
+                      }
+                      return (
+                        <li key={i} style={{ marginBottom: '8px' }}>
+                          <strong>[{d.subject}]</strong> {d.action} {d.outcome && <span>&rarr; <em>Kết quả:</em> {d.outcome}</span>}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <p style={{ fontStyle: 'italic', margin: '0' }}>Không có quyết định nào được ghi nhận.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="print-section">
+              <h2 className="print-section-title">3. DANH SÁCH CÔNG VIỆC BÀN GIAO (ACTION ITEMS)</h2>
+              <div className="print-section-content">
+                {actionItems.length > 0 ? (
+                  <table className="print-tasks-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '5%' }}>STT</th>
+                        <th style={{ width: '45%' }}>Nội dung công việc</th>
+                        <th style={{ width: '20%' }}>Người phụ trách</th>
+                        <th style={{ width: '15%' }}>Hạn hoàn thành</th>
+                        <th style={{ width: '15%' }}>Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {actionItems.map((item, idx) => (
+                        <tr key={idx} className={item.completed ? 'completed' : ''}>
+                          <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                          <td>
+                            <strong>{item.task_name}</strong>
+                            {item.priority && (
+                              <span className={`print-priority-badge print-priority-${item.priority}`}>
+                                {item.priority === 'high' ? 'Cao' : item.priority === 'medium' ? 'Vừa' : 'Thấp'}
+                              </span>
+                            )}
+                          </td>
+                          <td>{item.assignee || '—'}</td>
+                          <td style={{ textAlign: 'center' }}>{item.deadline || '—'}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 'bold', color: item.completed ? '#10b981' : '#f59e0b' }}>
+                            {item.completed ? 'Đã xong' : 'Chưa xong'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p style={{ fontStyle: 'italic', margin: '0' }}>Không có công việc nào được bàn giao.</p>
+                )}
+              </div>
+            </div>
+
+            {calculateSpeakerInsights().length > 0 && (
+              <div className="print-section">
+                <h2 className="print-section-title">4. THỐNG KÊ TỶ LỆ PHÁT BIỂU</h2>
+                <div className="print-section-content">
+                  <table className="print-speaker-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '10%' }}>STT</th>
+                        <th style={{ width: '45%' }}>Thành viên phát biểu</th>
+                        <th style={{ width: '25%' }}>Khối lượng phát biểu (Ký tự)</th>
+                        <th style={{ width: '20%' }}>Tỷ lệ đóng góp (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calculateSpeakerInsights().map((item, idx) => (
+                        <tr key={idx}>
+                          <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                          <td><strong>{item.speaker}</strong></td>
+                          <td style={{ textAlign: 'right' }}>{item.charCount.toLocaleString()}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{item.percentage}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="print-signatures-container">
+              <div className="print-signature-date">
+                <em>Hà Nội, Ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}</em>
+              </div>
+              <div className="print-signatures">
+                <div className="signature-col">
+                  <p className="signature-title">THƯ KÝ / NGƯỜI GHI BIÊN BẢN</p>
+                  <p className="signature-space">(Ký và ghi rõ họ tên)</p>
+                </div>
+                <div className="signature-col">
+                  <p className="signature-title">CHỦ TRÌ CUỘC HỌP</p>
+                  <p className="signature-space">(Ký và ghi rõ họ tên)</p>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="print-no-data" style={{ padding: '20px', textAlign: 'center', fontStyle: 'italic', color: '#6b7280' }}>
+            Chưa có dữ liệu tóm tắt cho cuộc họp này.
+          </div>
+        )}
+      </div>
     </div>
   );
 };
