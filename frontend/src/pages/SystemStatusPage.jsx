@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import API_BASE_URL from '../config';
 import AIStatusBar from '../components/AIStatusBar';
+import { useTheme } from '../contexts/ThemeContext';
 
 // SVG Icons
 const IconCheck = () => (
@@ -26,6 +27,7 @@ const IconAlertCircle = () => (
 );
 
 const SystemStatusPage = () => {
+  const { isDark } = useTheme();
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -229,10 +231,10 @@ const SystemStatusPage = () => {
               // Dynamic glassmorphic card styling based on status
               const cardBorder = model.active 
                 ? '1px solid var(--success-500)' 
-                : '1px solid var(--border-color, rgba(0, 0, 0, 0.08))';
+                : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid var(--border-default)');
               const cardBg = model.active
                 ? 'var(--success-50, rgba(230, 245, 233, 0.2))'
-                : 'var(--card-bg, rgba(255, 255, 255, 0.75))';
+                : (isDark ? 'rgba(30, 30, 34, 0.75)' : 'rgba(255, 255, 255, 0.75)');
 
               return (
                 <div 
