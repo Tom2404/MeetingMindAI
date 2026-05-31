@@ -32,6 +32,8 @@ class User(Base):
     full_name = Column(String(255), nullable=True)
     avatar_url = Column(String(512), nullable=True)
     is_active = Column(Boolean, default=True)
+    # Role-based access control (RBAC): 'user' | 'admin'
+    role = Column(String(20), nullable=False, default="user", index=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -39,6 +41,74 @@ class User(Base):
     meetings = relationship("Meeting", back_populates="owner", cascade="all, delete-orphan")
     # Quan hệ 1-1: User và Cấu hình của họ
     settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+
+# ==============================================================================
+# BẢNG SYSTEM SETTINGS — Cấu hình hệ thống (limit, queue, ...)
+# ==============================================================================
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(String(500), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+# ==============================================================================
+# BẢNG INCIDENT LOGS — Log sự cố hệ thống (5xx, overload, ...)
+# ==============================================================================
+class IncidentLog(Base):
+    __tablename__ = "incident_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    level = Column(String(20), nullable=False, default="error", index=True)
+    message = Column(Text, nullable=False)
+    details = Column(JSON, nullable=True)
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    request_id = Column(String(64), nullable=True, index=True)
+    path = Column(String(512), nullable=True, index=True)
+    method = Column(String(16), nullable=True)
+    status_code = Column(Integer, nullable=True, index=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+# ==============================================================================
+# BẢNG ADMIN AUDIT LOG — Log hành động quản trị
+# ==============================================================================
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action = Column(String(100), nullable=False, index=True)
+    target_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    ip = Column(String(64), nullable=True)
+    metadata_json = Column("metadata", JSON, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+# ==============================================================================
+# BẢNG AI JOBS — Theo dõi tải hàng đợi xử lý AI (STT/LLM)
+# ==============================================================================
+class AIJob(Base):
+    __tablename__ = "ai_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_type = Column(String(50), nullable=False, index=True)  # 'stt' | 'summarize'
+    status = Column(String(20), nullable=False, index=True)    # 'queued'|'running'|'success'|'failed'
+
+    meeting_id = Column(Integer, ForeignKey("meetings.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    queued_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    input_size = Column(Integer, default=0)
+    error = Column(Text, nullable=True)
+
 
 
 # ==============================================================================

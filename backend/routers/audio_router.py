@@ -7,16 +7,23 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from ..database import get_db, SessionLocal
-from ..models import Meeting, MeetingStatus, Transcript, Summary, User
+from ..models import AIJob, Meeting, MeetingStatus, Transcript, Summary, User
 from .auth_router import get_optional_user
 
 # Import hàm xử lý file cục bộ
 from ..services.storage_service import process_local_audio, UPLOAD_DIR
 from ..services.stt_service import transcribe_audio_local, transcribe_audio_with_gemini
+from ..services.ai_job_service import (
+    count_active_jobs,
+    create_job,
+    mark_job_failed,
+    mark_job_running,
+    mark_job_success,
+)
+from ..services.settings_service import get_setting_int
 
 router = APIRouter(prefix="/api/v1/meetings", tags=["meetings"])
 
-MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 ALLOWED_EXTENSIONS = [".mp3", ".wav", ".m4a"]
 
 class TranscriptSaveRequest(BaseModel):
@@ -53,7 +60,7 @@ def save_transcript(
     return {"meeting_id": meeting.id, "message": "Đã lưu bản bóc băng"}
 
 
-def run_stt_pipeline_task(meeting_id: int):
+def run_stt_pipeline_task(meeting_id: int, job_id: int):
     """
     Background Task: Faster-Whisper sẽ đọc file từ ổ cứng local.
     Sau khi STT xong, tự động gọi LLM để tóm tắt và lưu vào Database.
@@ -62,9 +69,14 @@ def run_stt_pipeline_task(meeting_id: int):
     db = SessionLocal()
     try:
         meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+        job = db.query(AIJob).filter(AIJob.id == job_id).first()
         if not meeting or not meeting.audio_s3_url:
             print("[Queue] Warning: Meeting or file link not found.")
             return
+
+        if job:
+            mark_job_running(db, job)
+            db.commit()
 
         # Đường dẫn tuyệt đối tới file wav trên máy — Sử dụng os.path.join thay vì nối chuỗi
         # audio_s3_url lưu dạng "/uploads/xxx.wav" → lấy tên file cuối
@@ -94,12 +106,18 @@ def run_stt_pipeline_task(meeting_id: int):
 
 
             meeting.status = MeetingStatus.COMPLETED
+
+            if job:
+                mark_job_success(db, job)
             db.commit()
             print(f"[Queue] STT completed for meeting {meeting_id}")
             
         except Exception as e:
             print(f"[Queue] STT Error: {repr(e)}")
             meeting.status = MeetingStatus.FAILED
+
+            if job:
+                mark_job_failed(db, job, error=str(e))
             db.commit()
             
     finally:
@@ -172,6 +190,12 @@ async def upload_audio_local(
     if ext.lower() not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file: .mp3, .wav, .m4a")
 
+    # Enforce AI concurrency limit (tránh overload hàng đợi AI)
+    max_concurrent = get_setting_int(db, "ai_max_concurrent_jobs", 2, minimum=1, maximum=32)
+    active_jobs = count_active_jobs(db)
+    if active_jobs >= max_concurrent:
+        raise HTTPException(status_code=429, detail="Hệ thống AI đang quá tải. Vui lòng thử lại sau.")
+
     # Giải mã tiêu đề, host, participants tiếng Việt nếu được gửi lên dạng form-data
     meeting_title = title if title else f"Cuộc họp {filename}"
     if title:
@@ -214,16 +238,18 @@ async def upload_audio_local(
         # Ghi file và validate size theo từng chunk (tránh DoS)
         total_written = 0
         chunk_size = 1024 * 1024  # 1MB per chunk
+        max_file_mb = get_setting_int(db, "max_upload_mb", 500, minimum=1, maximum=2048)
+        max_file_size = max_file_mb * 1024 * 1024
         with open(temp_path, "wb") as buffer:
             while True:
                 chunk = await file.read(chunk_size)
                 if not chunk:
                     break
                 total_written += len(chunk)
-                if total_written > MAX_FILE_SIZE:
+                if total_written > max_file_size:
                     buffer.close()
                     os.remove(temp_path)
-                    raise HTTPException(status_code=400, detail="File quá lớn (> 500 MB).")
+                    raise HTTPException(status_code=400, detail=f"File quá lớn (> {max_file_mb} MB).")
                 buffer.write(chunk)
 
         # Gọi FFmpeg Converter
@@ -235,8 +261,19 @@ async def upload_audio_local(
         new_meeting.status = MeetingStatus.PROCESSING
         db.commit()
 
+        # Tạo job theo dõi STT
+        job = create_job(
+            db,
+            job_type="stt",
+            status="queued",
+            user_id=current_user.id if current_user else None,
+            meeting_id=new_meeting.id,
+            input_size=total_written,
+        )
+        db.commit()
+
         # Đẩy việc Cốt lõi AI Bóc băng vào ngầm
-        background_tasks.add_task(run_stt_pipeline_task, new_meeting.id)
+        background_tasks.add_task(run_stt_pipeline_task, new_meeting.id, job.id)
 
         return {
             "message": "Upload & Xử lý FFmpeg thành công. Hệ thống đang tiến hành bóc băng ngầm bằng AI Whisper.",

@@ -9,8 +9,11 @@ from datetime import datetime, timezone
 # ==============================================================================
 # CẤU HÌNH BẢO MẬT
 # ==============================================================================
-# Secret key dùng để ký JWT token — Trong production nên đặt qua biến môi trường
-SECRET_KEY = os.getenv("SECRET_KEY", "meetingmind-ai-secret-key-2026-change-in-production")
+# Secret key dùng để ký JWT token — Trong production bắt buộc đặt qua biến môi trường
+_DEFAULT_SECRET_KEY = "meetingmind-ai-secret-key-2026-change-in-production"
+SECRET_KEY = os.getenv("SECRET_KEY", _DEFAULT_SECRET_KEY)
+if SECRET_KEY == _DEFAULT_SECRET_KEY and not os.getenv("SECRET_KEY"):
+    print("[SECURITY] WARNING: SECRET_KEY is using the default value. Set SECRET_KEY in .env before deploying to production.")
 # Thời gian sống của token (giây): 24 giờ
 TOKEN_EXPIRE_SECONDS = 24 * 60 * 60
 

@@ -6,6 +6,14 @@ from typing import Optional
 
 from ..database import get_db
 from ..models import Meeting, Summary, User, UserSettings
+from ..services.ai_job_service import (
+    count_active_jobs,
+    create_job,
+    mark_job_failed,
+    mark_job_running,
+    mark_job_success,
+)
+from ..services.settings_service import get_setting_int
 from ..services.llm_service import generate_meeting_summary
 from .auth_router import get_current_user, get_optional_user
 
@@ -40,6 +48,26 @@ def summarize_meeting(
     """
     if not request.transcript or len(request.transcript.strip()) < 10:
         raise HTTPException(status_code=400, detail="Văn bản bóc băng quá ngắn hoặc trống rỗng.")
+
+    max_chars = get_setting_int(db, "max_transcript_chars", 200_000, minimum=1000, maximum=2_000_000)
+    if len(request.transcript) > max_chars:
+        raise HTTPException(status_code=400, detail=f"Transcript quá dài (>{max_chars} ký tự).")
+
+    max_concurrent = get_setting_int(db, "ai_max_concurrent_jobs", 2, minimum=1, maximum=32)
+    active_jobs = count_active_jobs(db)
+    if active_jobs >= max_concurrent:
+        raise HTTPException(status_code=429, detail="Hệ thống AI đang quá tải. Vui lòng thử lại sau.")
+
+    job = create_job(
+        db,
+        job_type="summarize",
+        status="queued",
+        user_id=current_user.id if current_user else None,
+        meeting_id=request.meeting_id,
+        input_size=len(request.transcript),
+    )
+    mark_job_running(db, job)
+    db.commit()
 
     try:
         # 1. Truy vấn custom_prompt từ request hoặc User Settings của user hiện tại (nếu có đăng nhập)
@@ -86,12 +114,20 @@ def summarize_meeting(
             saved_id = new_summary.id
             print(f"[LLM] Success: Summary saved to DB for meeting_id={meeting.id}")
 
+        mark_job_success(db, job)
+        db.commit()
+
         return {
             "message": "Trích xuất bằng Trí Tuệ Nhân Tạo Llama 3.2 thành công.",
             "data": result_payload,
             "saved_id": saved_id
         }
     except Exception as e:
+        try:
+            mark_job_failed(db, job, error=str(e))
+            db.commit()
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=f"Lỗi Server nội bộ khi chạy LLM: {str(e)}")
 
 

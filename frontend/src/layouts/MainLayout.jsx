@@ -67,6 +67,9 @@ const MainLayout = () => {
   if (location.pathname === '/profile') headerTitle = 'Hồ sơ & Cài đặt';
   if (location.pathname === '/templates') headerTitle = 'Thư viện Mẫu Prompt AI';
   if (location.pathname === '/analytics') headerTitle = 'Phân Tích & Thống Kê';
+  if (location.pathname === '/admin/users') headerTitle = 'Quản trị người dùng';
+  if (location.pathname === '/admin/logs') headerTitle = 'Log sự cố';
+  if (location.pathname === '/admin/ai') headerTitle = 'Giám sát AI & Limit';
 
   return (
     <div className="app-shell">
@@ -82,44 +85,48 @@ const MainLayout = () => {
         </div>
 
         <nav className="sidebar__nav">
-          <span className="sidebar__section-label">Công việc</span>
-          <button 
-            className={`sidebar__item ${location.pathname === '/' || location.pathname === '/room' ? 'sidebar__item--active' : ''}`}
-            onClick={handleNewMeetingClick}
-          >
-            {meetingInfo ? <IconMicActive /> : <IconPlus />}
-            {meetingInfo ? 'Phòng họp hiện tại' : 'Cuộc họp mới'}
-          </button>
-          <button 
-            className={`sidebar__item ${location.pathname.startsWith('/history') ? 'sidebar__item--active' : ''}`}
-            onClick={() => { navigate('/history'); closeSidebar(); }}
-          >
-            <IconHistory />
-            Lịch sử cuộc họp
-          </button>
-          <button 
-            className={`sidebar__item ${location.pathname === '/tasks' ? 'sidebar__item--active' : ''}`}
-            onClick={() => { navigate('/tasks'); closeSidebar(); }}
-          >
-            <IconTasks />
-            Bảng công việc
-          </button>
+          {currentUser?.role !== 'admin' && (
+            <>
+              <span className="sidebar__section-label">Công việc</span>
+              <button 
+                className={`sidebar__item ${location.pathname === '/' || location.pathname === '/room' ? 'sidebar__item--active' : ''}`}
+                onClick={handleNewMeetingClick}
+              >
+                {meetingInfo ? <IconMicActive /> : <IconPlus />}
+                {meetingInfo ? 'Phòng họp hiện tại' : 'Cuộc họp mới'}
+              </button>
+              <button 
+                className={`sidebar__item ${location.pathname.startsWith('/history') ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/history'); closeSidebar(); }}
+              >
+                <IconHistory />
+                Lịch sử cuộc họp
+              </button>
+              <button 
+                className={`sidebar__item ${location.pathname === '/tasks' ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/tasks'); closeSidebar(); }}
+              >
+                <IconTasks />
+                Bảng công việc
+              </button>
 
-          <span className="sidebar__section-label">Trợ lý AI</span>
-          <button 
-            className={`sidebar__item ${location.pathname === '/templates' ? 'sidebar__item--active' : ''}`}
-            onClick={() => { navigate('/templates'); closeSidebar(); }}
-          >
-            <IconTemplates />
-            Thư viện Mẫu AI
-          </button>
-          <button 
-            className={`sidebar__item ${location.pathname === '/analytics' ? 'sidebar__item--active' : ''}`}
-            onClick={() => { navigate('/analytics'); closeSidebar(); }}
-          >
-            <IconAnalytics />
-            Thống kê Hiệu suất
-          </button>
+              <span className="sidebar__section-label">Trợ lý AI</span>
+              <button 
+                className={`sidebar__item ${location.pathname === '/templates' ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/templates'); closeSidebar(); }}
+              >
+                <IconTemplates />
+                Thư viện Mẫu AI
+              </button>
+              <button 
+                className={`sidebar__item ${location.pathname === '/analytics' ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/analytics'); closeSidebar(); }}
+              >
+                <IconAnalytics />
+                Thống kê Hiệu suất
+              </button>
+            </>
+          )}
 
           <span className="sidebar__section-label">Hệ thống</span>
           <button 
@@ -129,6 +136,33 @@ const MainLayout = () => {
             <IconServer />
             Trạng thái máy chủ
           </button>
+
+          {currentUser?.role === 'admin' && (
+            <>
+              <span className="sidebar__section-label">Quản trị</span>
+              <button
+                className={`sidebar__item ${location.pathname === '/admin/users' ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/admin/users'); closeSidebar(); }}
+              >
+                <IconTasks />
+                Người dùng
+              </button>
+              <button
+                className={`sidebar__item ${location.pathname === '/admin/logs' ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/admin/logs'); closeSidebar(); }}
+              >
+                <IconHistory />
+                Log sự cố
+              </button>
+              <button
+                className={`sidebar__item ${location.pathname === '/admin/ai' ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/admin/ai'); closeSidebar(); }}
+              >
+                <IconServer />
+                AI & Limit
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="sidebar__footer">
