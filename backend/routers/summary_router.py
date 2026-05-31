@@ -103,6 +103,7 @@ def get_meeting_history(
     """
     Lấy danh sách tất cả cuộc họp của user đã đăng nhập, kèm trạng thái Summary.
     Sắp xếp từ mới nhất đến cũ nhất.
+    Chỉ hiển thị các cuộc họp đã có bản bóc băng, tóm tắt hoặc đang được xử lý ngầm.
     """
     meetings = (
         db.query(Meeting)
@@ -113,14 +114,16 @@ def get_meeting_history(
 
     result = []
     for m in meetings:
-        result.append({
-            "id": m.id,
-            "title": m.title,
-            "status": m.status.value if m.status else None,
-            "has_summary": m.summary is not None,
-            "created_at": str(m.created_at),
-            "duration_seconds": m.duration_seconds
-        })
+        # Lọc: Chỉ giữ lại cuộc họp đã có bóc băng, tóm tắt hoặc đang xử lý ngầm (đang bóc băng)
+        if m.transcript is not None or m.summary is not None or (m.status and m.status.value == "processing"):
+            result.append({
+                "id": m.id,
+                "title": m.title,
+                "status": m.status.value if m.status else None,
+                "has_summary": m.summary is not None,
+                "created_at": str(m.created_at),
+                "duration_seconds": m.duration_seconds
+            })
 
     return {"meetings": result, "total": len(result)}
 
@@ -129,7 +132,7 @@ def get_meeting_history(
 def get_meeting_summary(
     meeting_id: int,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Lấy bản tóm tắt đã lưu của một cuộc họp cụ thể.
@@ -137,6 +140,10 @@ def get_meeting_summary(
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
         raise HTTPException(status_code=404, detail="Không tìm thấy cuộc họp.")
+
+    # Bảo mật: Kiểm tra phân quyền sở hữu cuộc họp (Vá lỗi BOLA/IDOR Security)
+    if meeting.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập báo cáo cuộc họp này.")
 
     summary = db.query(Summary).filter(Summary.meeting_id == meeting_id).first()
     

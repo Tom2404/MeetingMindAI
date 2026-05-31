@@ -75,7 +75,7 @@ const MeetingHistory = ({ token, onViewSummary }) => {
 
   const getStatusBadge = (status, hasSummary) => {
     const map = {
-      completed: { cls: hasSummary ? 'mm-badge--success' : 'mm-badge--info', text: hasSummary ? 'Đã tóm tắt' : 'Đã bóc băng' },
+      completed: { cls: hasSummary ? 'mm-badge--success' : 'mm-badge--info', text: hasSummary ? 'Đã lưu tóm tắt' : 'Đã lưu bóc băng' },
       processing: { cls: 'mm-badge--warning', text: 'Đang xử lý' },
       recording: { cls: 'mm-badge--info', text: 'Đang ghi' },
       failed: { cls: 'mm-badge--danger', text: 'Thất bại' }

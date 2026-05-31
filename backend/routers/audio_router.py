@@ -19,6 +19,30 @@ router = APIRouter(prefix="/api/v1/meetings", tags=["meetings"])
 MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 ALLOWED_EXTENSIONS = [".mp3", ".wav", ".m4a"]
 
+def cleanup_old_audio_files(upload_dir: str, max_age_days: int = 3):
+    """Xóa bỏ các file âm thanh cũ trong thư mục upload_dir nếu thời gian sửa đổi cũ hơn max_age_days ngày."""
+    import time
+    if not os.path.exists(upload_dir):
+        return
+    now = time.time()
+    cutoff = now - (max_age_days * 86400) # 86400 giây = 1 ngày
+    
+    try:
+        cleaned_count = 0
+        for filename in os.listdir(upload_dir):
+            file_path = os.path.join(upload_dir, filename)
+            if os.path.isfile(file_path):
+                _, ext = os.path.splitext(filename)
+                if ext.lower() in ALLOWED_EXTENSIONS:
+                    file_mtime = os.path.getmtime(file_path)
+                    if file_mtime < cutoff:
+                        os.remove(file_path)
+                        cleaned_count += 1
+        if cleaned_count > 0:
+            print(f"[Storage Cleanup] Đã tự động dọn dẹp {cleaned_count} tệp âm thanh cũ hơn {max_age_days} ngày.")
+    except Exception as e:
+        print(f"[Storage Cleanup] Lỗi khi dọn dẹp ổ cứng: {str(e)}")
+
 class TranscriptSaveRequest(BaseModel):
     title: str
     transcript: str
@@ -161,6 +185,9 @@ async def upload_audio_local(
     4. Cập nhật record 'Meeting' trong database.
     5. Đưa vào Queue xử lý bóc băng.
     """
+    # Tự động dọn dẹp các tệp âm thanh cũ hơn 3 ngày để giải phóng ổ cứng (Vá lỗi tràn đĩa cứng)
+    cleanup_old_audio_files(UPLOAD_DIR, max_age_days=3)
+
     # Khôi phục tên tệp nguyên bản tiếng Việt bị lỗi giải mã từ latin-1
     display_name = original_name if original_name else file.filename
     try:
