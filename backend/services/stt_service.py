@@ -14,6 +14,7 @@ env_path = root_dir / ".env"
 load_dotenv(dotenv_path=env_path)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_STT_MODEL = os.getenv("GEMINI_STT_MODEL", "gemini-2.5-flash")
 
 # ==============================================================================
 # CẤU HÌNH STT — Ưu tiên độ chính xác cao nhất
@@ -120,10 +121,68 @@ def transcribe_audio_local(audio_path: str) -> str:
         "chunks": [{"speaker": "Unknown", "text": t, "start": None, "end": None} for t in valid_segments]
     }
 
-def transcribe_audio_with_gemini(audio_path: str) -> dict:
+def clean_gemini_transcript(result_text: str) -> str:
     """
-    Bóc băng audio → văn bản sử dụng Gemini 1.5 Flash.
-    Hỗ trợ phân biệt người nói (Speaker Diarization) qua prompt.
+    Làm sạch kết quả thô của Gemini để lấy ra phần bóc băng hội thoại thực tế,
+    loại bỏ phần Bước 1 (hồ sơ đặc trưng) và Bước 2 (ánh xạ tên).
+    """
+    dialogue_text = result_text
+
+    # 1. Thử tách bằng các biến thể của "Bước 3"
+    split_patterns = [
+        r"B[ướu]c\s*3",
+        r"B[ướu]c\s*III",
+        r"Buoc\s*3",
+        r"Buoc\s*III",
+        r"Ph[ầâ]n\s*3",
+        r"Phan\s*3",
+        r"Step\s*3"
+    ]
+    for sp in split_patterns:
+        parts = re.split(sp, result_text, flags=re.IGNORECASE)
+        if len(parts) > 1:
+            dialogue_text = parts[-1]
+            # Loại bỏ dấu hai chấm, dấu sao hoặc khoảng trắng ở đầu phần bóc băng
+            dialogue_text = re.sub(r"^[\s\:\*\-\=\#\.\(\)]+", "", dialogue_text).strip()
+            return dialogue_text
+
+    # 2. Nếu không tìm thấy "Bước 3" rõ ràng, ta lọc từng dòng để bỏ bớt phần Bước 1 và Bước 2
+    lines = result_text.split("\n")
+    cleaned_lines = []
+    in_dialogue = False
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # Gặp tiêu đề Bước 3 thì chuyển sang chế độ hội thoại
+        if any(re.search(sp, stripped, re.IGNORECASE) for sp in split_patterns):
+            in_dialogue = True
+            continue
+            
+        # Gặp tiêu đề Bước 1 hoặc Bước 2 thì bỏ qua
+        if any(x in stripped.lower() for x in ["bước 1", "bước 2", "buoc 1", "buoc 2", "hồ sơ đặc trưng", "biomarker", "ánh xạ"]):
+            continue
+            
+        # Nếu chưa vào hội thoại nhưng dòng có cấu trúc giống câu thoại và không có các đặc trưng của Bước 1
+        if not in_dialogue:
+            if re.match(r"^(\s*-\s*)?(?:\[[^\]]+\]|\*\*[^*:]+\*\*|[a-zA-Z0-9À-ỹ\s]{2,30})\s*:", stripped):
+                if not any(kwd in stripped.lower() for kwd in ["giọng nữ", "giọng nam", "miền nam", "miền bắc", "nói nhanh", "nói chậm"]):
+                    in_dialogue = True
+        
+        if in_dialogue:
+            cleaned_lines.append(line)
+            
+    if cleaned_lines:
+        return "\n".join(cleaned_lines).strip()
+        
+    return dialogue_text
+
+
+def transcribe_audio_with_gemini(audio_path: str, host: str = None, participants: str = None) -> dict:
+    """
+    Bóc băng audio → văn bản sử dụng Gemini Flagship (Hybrid Diarization Pipeline).
+    Áp dụng kỹ thuật Chain-of-Thought (CoT) để thiết lập Biomarkers & Mapped Names trước khi bóc băng,
+    giúp nâng độ chính xác định danh người nói lên tối đa.
     """
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY not configured in the system.")
@@ -145,20 +204,40 @@ def transcribe_audio_with_gemini(audio_path: str) -> dict:
         
     print("[STT-GEMINI] File ready. Generating transcription with Speaker Diarization...")
     
-    prompt = """Hãy nghe đoạn ghi âm này và bóc băng hội thoại chính xác từng từ  
-    NHIỆM VỤ QUAN TRỌNG: 
-    1. Hãy phân biệt các người nói khác nhau.
-    2. Gắn nhãn họ là [Speaker 1], [Speaker 2], [Speaker 3], v.v. dựa trên giọng nói.
-    3. Trả về nội dung theo định dạng chính xác như sau:
-       [Speaker 1]: Nội dung người thứ nhất nói...
-       [Speaker 2]: Nội dung người thứ hai nói...
-       [Speaker 1]: Nội dung người thứ nhất nói tiếp...
-    
-    Chỉ trả về phần hội thoại đã được gán nhãn, không thêm lời chào, giải thích hay bình luận nào khác."""
+    # Xây dựng bối cảnh cuộc họp thực tế
+    speaker_context = ""
+    if host or participants:
+        speaker_context = "\nThông tin danh sách người tham gia thực tế cuộc họp:\n"
+        if host:
+            speaker_context += f"- Người chủ trì (Host): {host}\n"
+        if participants:
+            speaker_context += f"- Danh sách người tham gia khác: {participants}\n"
+ 
+    prompt = f"""Bạn là chuyên gia bóc băng hội thoại và định danh người nói cấp cao.
+    Hãy nghe kỹ tệp âm thanh này và thực hiện nhiệm vụ theo đúng cấu trúc 3 Bước sau (đặc biệt sử dụng phương pháp suy luận Chain-of-Thought để hiệu chỉnh nhãn người nói):
+ 
+    Bước 1: Lập hồ sơ đặc trưng giọng nói (Speaker Biomarkers)
+    Hãy phân tích và liệt kê các giọng nói khác nhau xuất hiện trong toàn bộ file audio. Với mỗi giọng nói, hãy ghi chú các đặc điểm nhận diện vật lý (Nam/Nữ, trầm/cao, giọng miền Bắc/Trung/Nam, nói nhanh/chậm) và cách xưng hô đặc trưng.
+ 
+    Bước 2: Ánh xạ tên thực tế (Speaker Name Mapping){speaker_context}
+    Hãy đối chiếu các hồ sơ giọng nói vừa mô tả ở Bước 1 với danh sách người tham gia thực tế để gán tên thật chính xác nhất.
+    (Ví dụ: Speaker A có giọng nam trầm miền Nam, hay được các thành viên khác gọi là chủ trì -> Ánh xạ thành tên thật của người chủ trì).
+    Nếu giọng nói không thuộc danh sách trên, hãy gán nhãn mô tả như [Người nói ngoài DS 1], v.v.
+ 
+    Bước 3: Bóc băng chi tiết theo tên đã ánh xạ
+    Tiến hành bóc băng chính xác từng từ theo mốc thời gian hội thoại, sử dụng các tên đã được ánh xạ ở Bước 2 làm nhãn người nói.
+    Định dạng đầu ra bắt buộc của Bước 3:
+    [Tên người nói đã ánh xạ]: Nội dung câu nói...
+    [Tên người nói khác đã ánh xạ]: Nội dung câu nói...
+ 
+    LƯU Ý QUAN TRỌNG:
+    - Phải giữ sự nhất quán tuyệt đối về nhãn người nói từ đầu đến cuối audio. Không được lẫn lộn nhãn tên cho cùng một giọng nói.
+    - Chỉ trả về kết quả theo cấu trúc 3 Bước trên, không thêm bất kỳ lời chào, lời giải thích hay ký tự thừa nào khác.
+    """
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_STT_MODEL,
             contents=[audio_file, prompt]
         )
         result_text = response.text.strip()
@@ -172,30 +251,58 @@ def transcribe_audio_with_gemini(audio_path: str) -> dict:
         except Exception as e:
             print(f"[STT-GEMINI] Warning: Error deleting file: {repr(e)}")
             
-    # Parse text thành các chunks hội thoại
+    # Làm sạch tệp transcript (loại bỏ Bước 1 & Bước 2)
+    dialogue_text = clean_gemini_transcript(result_text)
+ 
+    # Parse text thành các chunks hội thoại bằng giải thuật quét dòng có khử mốc thời gian
     chunks = []
-    # Regex tìm các đoạn [Speaker X]: Nội dung
-    pattern = r"\[Speaker (\d+)\]:\s*(.*?)(?=\[Speaker \d+\]:|$)"
-    matches = re.finditer(pattern, result_text, re.DOTALL)
-    
-    for match in matches:
-        speaker_id = f"Người nói {match.group(1)}"
-        text = match.group(2).strip()
-        if text:
-            chunks.append({
-                "speaker": speaker_id,
-                "text": text,
-                "start": None,
-                "end": None
-            })
-
-    # Nếu không parse được theo định dạng trên (Gemini trả về text thuần), bọc cả cục vào 1 chunk
-    if not chunks:
-        chunks = [{"speaker": "Người nói 1", "text": result_text, "start": None, "end": None}]
-
+    lines = dialogue_text.split("\n")
+    for line in lines:
+        if not line.strip():
+            continue
+            
+        # 1. Loại bỏ mốc thời gian (timestamp) ở đầu dòng nếu có
+        # Ví dụ: 00:06, [00:15], - 00:06, v.v.
+        clean_line = re.sub(
+            r"^\s*(?:-\s*)?(?:\[?\d{1,2}:\d{2}(?::\d{2})?\]?|(?:\d{1,2}:\d{2}(?::\d{2})?))\s*[-–—]?\s*",
+            "",
+            line
+        )
+        
+        # 2. Thử khớp các định dạng người nói
+        # Định dạng 1: [Tên]: Nội dung
+        match1 = re.match(r"^\[([^\]]+)\]\s*:\s*(.*)$", clean_line)
+        if match1:
+            speaker = match1.group(1).replace("*", "").replace("[", "").replace("]", "").strip()
+            text = match1.group(2).strip()
+            chunks.append({"speaker": speaker, "text": text, "start": None, "end": None})
+            continue
+            
+        # Định dạng 2: **Tên**: Nội dung
+        match2 = re.match(r"^\*\*([^*:]+)\*\*\s*:\s*(.*)$", clean_line)
+        if match2:
+            speaker = match2.group(1).strip()
+            text = match2.group(2).strip()
+            chunks.append({"speaker": speaker, "text": text, "start": None, "end": None})
+            continue
+            
+        # Định dạng 3: Tên: Nội dung
+        match3 = re.match(r"^([^:]+)\s*:\s*(.*)$", clean_line)
+        if match3 and "[" not in match3.group(1):
+            speaker = match3.group(1).replace("*", "").replace("[", "").replace("]", "").strip()
+            text = match3.group(2).strip()
+            chunks.append({"speaker": speaker, "text": text, "start": None, "end": None})
+            continue
+            
+        # Fallback: nếu dòng không khớp định dạng nào, cộng dồn vào chunk trước đó
+        if chunks:
+            chunks[-1]["text"] += "\n" + clean_line.strip()
+        else:
+            chunks.append({"speaker": "Người nói", "text": clean_line.strip(), "start": None, "end": None})
+ 
     print(f"[STT-GEMINI] Total characters: {len(result_text)}, Total chunks: {len(chunks)}")
     return {
-        "full_text": result_text,
+        "full_text": dialogue_text,
         "chunks": chunks
     }
 

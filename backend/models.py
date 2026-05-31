@@ -75,6 +75,8 @@ class Meeting(Base):
     duration_seconds = Column(Integer, default=0)
     audio_s3_url = Column(String(512), nullable=True)
     status = Column(Enum(MeetingStatus), default=MeetingStatus.RECORDING)
+    host = Column(String(255), nullable=True)
+    participants = Column(Text, nullable=True)
 
     # FK liên kết tới User (nullable để không break flow cũ khi chưa đăng nhập)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

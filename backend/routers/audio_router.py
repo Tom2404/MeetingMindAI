@@ -1,7 +1,7 @@
 import os
 import shutil
 import tempfile
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, BackgroundTasks, Header
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, BackgroundTasks, Header, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -23,6 +23,7 @@ class TranscriptSaveRequest(BaseModel):
     title: str
     transcript: str
     chunks: list = []
+    duration_seconds: Optional[int] = 0
 
 @router.post("/save-transcript")
 def save_transcript(
@@ -34,7 +35,8 @@ def save_transcript(
     meeting = Meeting(
         title=request.title,
         status=MeetingStatus.COMPLETED,
-        user_id=current_user.id if current_user else None
+        user_id=current_user.id if current_user else None,
+        duration_seconds=request.duration_seconds or 0
     )
     db.add(meeting)
     db.commit()
@@ -70,9 +72,12 @@ def run_stt_pipeline_task(meeting_id: int):
         file_disk_path = os.path.join(UPLOAD_DIR, filename_only)
         
         try:
-            # 1. Chạy AI Gemini 1.5 Flash (Bóc băng + Phân biệt người nói)
-            # Sử dụng Gemini làm mặc định để có tốc độ nhanh và tính năng Speaker Diarization
-            stt_result = transcribe_audio_with_gemini(file_disk_path)
+            # 1. Chạy AI Gemini (Bóc băng + Phân biệt người nói bằng host và participants)
+            stt_result = transcribe_audio_with_gemini(
+                file_disk_path, 
+                host=meeting.host, 
+                participants=meeting.participants
+            )
             recognized_text = stt_result["full_text"]
             chunks = stt_result["chunks"]
             
@@ -141,26 +146,61 @@ def get_transcript(meeting_id: int, db: Session = Depends(get_db)):
 async def upload_audio_local(
     background_tasks: BackgroundTasks, 
     file: UploadFile = File(...), 
+    title: Optional[str] = Form(None),
+    host: Optional[str] = Form(None),
+    participants: Optional[str] = Form(None),
+    original_name: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
     Upload file âm thanh trực tiếp (Local Storage Mode):
     1. Tiếp nhận file qua network HTTP.
-    2. Lưu tạm xuống thư mục temp của OS (tương thích Windows/Linux). 
+    2. Lưu tạm xuống thư mục temp của OS.
     3. Convert qua FFmpeg và ném vào thư mục /uploads của dự án.
     4. Cập nhật record 'Meeting' trong database.
-    5. Đưa vào Queue xử lý bóc băng Bằng Lõi Faster Whisper.
+    5. Đưa vào Queue xử lý bóc băng.
     """
-    filename, ext = os.path.splitext(file.filename)
+    # Khôi phục tên tệp nguyên bản tiếng Việt bị lỗi giải mã từ latin-1
+    display_name = original_name if original_name else file.filename
+    try:
+        display_name = display_name.encode('latin1').decode('utf-8')
+    except Exception:
+        pass
+
+    filename, ext = os.path.splitext(display_name)
     if ext.lower() not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file: .mp3, .wav, .m4a")
 
+    # Giải mã tiêu đề, host, participants tiếng Việt nếu được gửi lên dạng form-data
+    meeting_title = title if title else f"Cuộc họp {filename}"
+    if title:
+        try:
+            meeting_title = title.encode('latin1').decode('utf-8')
+        except Exception:
+            pass
+
+    meeting_host = host
+    if host:
+        try:
+            meeting_host = host.encode('latin1').decode('utf-8')
+        except Exception:
+            pass
+
+    meeting_participants = participants
+    if participants:
+        try:
+            meeting_participants = participants.encode('latin1').decode('utf-8')
+        except Exception:
+            pass
+
     # 1. Tạo bản ghi Meeting tạm thời báo đang ghi nhận, gắn user nếu đã đăng nhập
     new_meeting = Meeting(
-        title=f"Cuộc họp {filename}", 
+        title=meeting_title, 
         status=MeetingStatus.RECORDING,
-        user_id=current_user.id if current_user else None
+        user_id=current_user.id if current_user else None,
+        host=meeting_host,
+        participants=meeting_participants
     )
     db.add(new_meeting)
     db.commit()
@@ -187,10 +227,11 @@ async def upload_audio_local(
                 buffer.write(chunk)
 
         # Gọi FFmpeg Converter
-        local_url_path = process_local_audio(temp_path, filename)
+        local_url_path, duration_seconds = process_local_audio(temp_path, filename)
 
         # Cập nhật DB trạng thái đang bóc băng STT ...
         new_meeting.audio_s3_url = local_url_path
+        new_meeting.duration_seconds = duration_seconds
         new_meeting.status = MeetingStatus.PROCESSING
         db.commit()
 

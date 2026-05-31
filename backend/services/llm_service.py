@@ -10,7 +10,17 @@ import os
 # CẤU HÌNH LLM — Dùng biến môi trường để dễ đổi model
 # ==============================================================================
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct")
+# Biến chứa model Ollama đang hoạt động (có thể thay đổi động bằng API)
+ACTIVE_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct")
+
+def get_active_ollama_model() -> str:
+    global ACTIVE_OLLAMA_MODEL
+    return ACTIVE_OLLAMA_MODEL
+
+def set_active_ollama_model(model_name: str):
+    global ACTIVE_OLLAMA_MODEL
+    ACTIVE_OLLAMA_MODEL = model_name
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # ==============================================================================
@@ -275,7 +285,7 @@ def _generate_with_ollama(transcript_text: str, max_retries: int, custom_prompt:
     user_prompt += f"Meeting transcript:\n{transcript_text}"
 
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": get_active_ollama_model(),
         "system": system_prompt,
         "prompt": user_prompt,
         "stream": False,
@@ -290,7 +300,7 @@ def _generate_with_ollama(transcript_text: str, max_retries: int, custom_prompt:
 
     for attempt in range(max_retries + 1):
         try:
-            print(f"[LLM] Sending summary request to Ollama ({OLLAMA_MODEL})"
+            print(f"[LLM] Sending summary request to Ollama ({get_active_ollama_model()})"
                   f"{f' — attempt {attempt+1}/{max_retries+1}' if attempt > 0 else ''}...")
 
             response = requests.post(OLLAMA_API_URL, json=payload, timeout=300)
@@ -315,7 +325,7 @@ def _generate_with_ollama(transcript_text: str, max_retries: int, custom_prompt:
                 "decisions":     _normalize_decisions(parsed.get("decisions", [])),
                 "action_items":  _normalize_action_items(parsed.get("action_items", [])),
                 "processing_metadata": {
-                    "model_used":        OLLAMA_MODEL,
+                    "model_used":        get_active_ollama_model(),
                     "transcript_length": len(transcript_text),
                     "timestamp":         datetime.now(timezone.utc).isoformat(),
                     "attempt":           attempt + 1,

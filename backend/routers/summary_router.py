@@ -17,6 +17,7 @@ class SummaryRequest(BaseModel):
     meeting_id: Optional[int] = None  # Liên kết summary với meeting cụ thể (nếu có)
     ai_provider: Optional[str] = "ollama"  # "ollama" hoặc "gemini"
     custom_prompt: Optional[str] = None  # Custom Prompt chỉ định bối cảnh tóm tắt
+    save_to_db: Optional[bool] = False
 
 
 class SummaryUpdateRequest(BaseModel):
@@ -64,9 +65,9 @@ def summarize_meeting(
             meeting_title=meeting_title
         )
 
-        # Lưu kết quả vào Database nếu có meeting_id
+        # Lưu kết quả vào Database nếu có meeting_id và yêu cầu save_to_db
         saved_id = None
-        if meeting:
+        if meeting and request.save_to_db:
             # Xóa summary cũ nếu có (upsert)
             existing_summary = db.query(Summary).filter(Summary.meeting_id == meeting.id).first()
             if existing_summary:
@@ -177,14 +178,21 @@ def update_meeting_summary(
         
     summary = db.query(Summary).filter(Summary.meeting_id == meeting_id).first()
     if not summary:
-        raise HTTPException(status_code=404, detail="Không tìm thấy tóm tắt.")
-        
-    if request.summary_text is not None:
-        summary.summary_text = request.summary_text
-    if request.decisions is not None:
-        summary.decisions = request.decisions
-    if request.action_items is not None:
-        summary.action_items = request.action_items
+        # Nếu chưa tồn tại bản tóm tắt, tạo mới (hỗ trợ lưu lần đầu)
+        summary = Summary(
+            meeting_id=meeting_id,
+            summary_text=request.summary_text if request.summary_text is not None else "",
+            decisions=request.decisions if request.decisions is not None else [],
+            action_items=request.action_items if request.action_items is not None else []
+        )
+        db.add(summary)
+    else:
+        if request.summary_text is not None:
+            summary.summary_text = request.summary_text
+        if request.decisions is not None:
+            summary.decisions = request.decisions
+        if request.action_items is not None:
+            summary.action_items = request.action_items
         
     db.commit()
     return {"message": "Đã cập nhật thành công"}

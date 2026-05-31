@@ -9,16 +9,37 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
-def process_local_audio(audio_path: str, filename: str) -> str:
+def get_audio_duration(file_path: str) -> int:
+    """
+    Lấy thời lượng của tệp âm thanh bằng ffprobe (trả về số giây nguyên).
+    """
+    try:
+        command = [
+            "ffprobe",
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            file_path
+        ]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+        duration = float(result.stdout.strip())
+        return int(round(duration))
+    except Exception as e:
+        print(f"Error reading duration with ffprobe for {file_path}: {e}")
+        return 0
+
+
+def process_local_audio(audio_path: str, filename: str) -> tuple[str, int]:
     """
     Xử lý:
     1. Dùng FFmpeg convert file audio thành chuẩn 16kHz, mono để Whisper đọc tốt nhất.
     2. Lưu file sau convert vào thư mục local 'backend/uploads/'.
-    3. Trả về đường dẫn file local dạng chuỗi.
+    3. Trả về tuple (đường dẫn file local dạng chuỗi, thời lượng cuộc họp tính bằng giây).
     """
     # Khởi tạo đường dẫn output chuẩn wav trên ổ cứng
-    safe_filename = filename.replace(" ", "_").replace("/", "")
-    final_filename = f"{uuid.uuid4().hex[:8]}_{safe_filename}.wav"
+    # Để tránh lỗi mã hóa ký tự Unicode (tiếng Việt có dấu) trên Windows khi làm việc với các tiến trình con
+    # như FFmpeg, FFprobe, Faster-Whisper và Google API, chúng ta chỉ sử dụng mã UUID ASCII làm tên file vật lý trên đĩa.
+    final_filename = f"{uuid.uuid4().hex}.wav"
     processed_filepath = os.path.join(UPLOAD_DIR, final_filename)
 
     try:
@@ -42,13 +63,16 @@ def process_local_audio(audio_path: str, filename: str) -> str:
         # Chạy lệnh
         subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
+        # Đọc thời lượng từ file đã convert thành công
+        duration_seconds = get_audio_duration(processed_filepath)
+
         # Xóa file upload thô/tmp sau khi convert thành công (chỉ xóa khi FFmpeg OK)
         if os.path.exists(audio_path):
             os.remove(audio_path)
 
-        # Trả về đường dẫn local trực tiếp (để fake URL)
+        # Trả về đường dẫn local trực tiếp (để fake URL) và thời lượng cuộc họp
         local_url = f"/uploads/{final_filename}"
-        return local_url
+        return local_url, duration_seconds
 
     except subprocess.CalledProcessError as e:
         print(f"FFmpeg conversion error: {e.stderr}")
@@ -56,4 +80,5 @@ def process_local_audio(audio_path: str, filename: str) -> str:
     except Exception as e:
         print(f"Filesystem error: {str(e)}")
         raise RuntimeError("Không thể lưu file trên máy chủ.")
+
 
