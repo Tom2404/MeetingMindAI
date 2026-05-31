@@ -37,8 +37,9 @@ def process_local_audio(audio_path: str, filename: str) -> tuple[str, int]:
     3. Trả về tuple (đường dẫn file local dạng chuỗi, thời lượng cuộc họp tính bằng giây).
     """
     # Khởi tạo đường dẫn output chuẩn wav trên ổ cứng
-    safe_filename = filename.replace(" ", "_").replace("/", "")
-    final_filename = f"{uuid.uuid4().hex[:8]}_{safe_filename}.wav"
+    # Để tránh lỗi mã hóa ký tự Unicode (tiếng Việt có dấu) trên Windows khi làm việc với các tiến trình con
+    # như FFmpeg, FFprobe, Faster-Whisper và Google API, chúng ta chỉ sử dụng mã UUID ASCII làm tên file vật lý trên đĩa.
+    final_filename = f"{uuid.uuid4().hex}.wav"
     processed_filepath = os.path.join(UPLOAD_DIR, final_filename)
 
     try:
