@@ -253,6 +253,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const [summaryDataOriginal, setSummaryDataOriginal] = useState(null);
   const [showOriginalLanguage, setShowOriginalLanguage] = useState(false);
   const [isLoading, setIsLoading]           = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [errorMsg, setErrorMsg]             = useState('');
   const [errorType, setErrorType]           = useState('');
   const [loadingSeconds, setLoadingSeconds] = useState(0);
@@ -351,7 +352,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   const handleStartSummarize = async (overrideProvider) => {
     if (!editableTranscript && !activeTranscript) return;
-    setIsLoading(true); setErrorMsg(''); setErrorType(''); setLoadingSeconds(0); setIsSaved(false);
+    setIsLoading(true); setIsAiProcessing(true); setErrorMsg(''); setErrorType(''); setLoadingSeconds(0); setIsSaved(false);
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -405,7 +406,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setErrorType('network'); setErrorMsg('Không kết nối được tới Backend.');
       } else { setErrorType('ai'); setErrorMsg(err.message || 'Lỗi kết nối tới LLM.'); }
-    } finally { setIsLoading(false); }
+    } finally { setIsLoading(false); setIsAiProcessing(false); }
   };
 
   const toggleActionItem = async (uid) => {
@@ -896,7 +897,12 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const actionItems = displayedSummaryData?.action_items || [];
   const keyTopics = displayedSummaryData?.key_topics || [];
   const completedCount = actionItems.filter(i => i.completed).length;
-  const hasSummary = !!displayedSummaryData;
+  const hasSummary = !!displayedSummaryData && (
+    !!displayedSummaryData.id || (
+      !!displayedSummaryData.summary_text && 
+      displayedSummaryData.summary_text !== "Cuộc họp này chưa được tóm tắt."
+    )
+  );
 
   const canToggleLanguage = !!summaryDataOriginal;
   const toggleLanguageView = () => {
@@ -1248,9 +1254,9 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         <div className="summary__loading no-print">
           <div className="mm-spinner mm-spinner--lg mm-spinner--primary" style={{ margin: '0 auto' }} />
           <p className="summary__loading-text">
-            {viewingSummaryId ? 'Đang tải bản tóm tắt đã lưu...' : 'AI đang phân tích cuộc họp...'}
+            {isAiProcessing ? 'AI đang phân tích cuộc họp...' : (viewingSummaryId ? 'Đang tải bản tóm tắt đã lưu...' : 'AI đang phân tích cuộc họp...')}
           </p>
-          {!viewingSummaryId && (
+          {(isAiProcessing || !viewingSummaryId) && (
             <>
               <p className="summary__loading-timer">{loadingSeconds} giây</p>
               <div style={{ width: '60%', margin: '0 auto' }}>
