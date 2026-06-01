@@ -110,6 +110,231 @@ Use the SAME LANGUAGE as the input transcript for all content fields (if the tra
 # HELPERS
 # ==============================================================================
 
+SUPPORTED_TARGET_LANGUAGES = {
+    "vi": "Vietnamese",
+    "en": "English",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "zh": "Chinese (Simplified)",
+    "th": "Thai",
+}
+
+
+def translate_summary_payload(payload: dict, *, target_language: str, provider: str = "ollama") -> dict:
+    """Translate a meeting summary payload (summary_text, key_topics, decisions, action_items).
+
+    Uses a single model call to translate JSON while preserving structure.
+    """
+    lang = (target_language or "").strip().lower()
+    if not lang:
+        return payload
+    if lang not in SUPPORTED_TARGET_LANGUAGES:
+        raise ValueError(f"Unsupported target_language: {lang}")
+
+    if not isinstance(payload, dict):
+        raise ValueError("payload must be a dict")
+
+    # Only send core fields for translation
+    core = {
+        "summary_text": payload.get("summary_text", ""),
+        "key_topics": payload.get("key_topics", []),
+        "decisions": payload.get("decisions", []),
+        "action_items": payload.get("action_items", []),
+    }
+
+    if provider == "gemini":
+        translated = _translate_payload_with_gemini(core, lang)
+    else:
+        translated = _translate_payload_with_ollama(core, lang)
+
+    # Merge translated core back into original payload (keep metadata)
+    merged = {
+        **payload,
+        **translated,
+    }
+
+    # Some models may leave short phrases unchanged inside arrays.
+    # Post-process key_topics to make translation consistent.
+    topics = merged.get("key_topics")
+    if isinstance(topics, list) and topics:
+        translated_topics = []
+        for t in topics[:10]:
+            if not isinstance(t, str) or not t.strip():
+                continue
+            translated_topics.append(translate_text(t, target_language=lang, provider=provider))
+        if translated_topics:
+            merged["key_topics"] = translated_topics
+    return merged
+
+
+def _build_translation_json_system_prompt(target_language: str) -> str:
+    language_name = SUPPORTED_TARGET_LANGUAGES.get(target_language, target_language)
+    return (
+        "You are a professional translator. "
+        f"Translate the JSON content to {language_name}. "
+        "Preserve the JSON structure and keys exactly. "
+        "Translate ALL string values at any depth (including strings inside arrays like key_topics). "
+        "Do not add or remove fields. "
+        "Do not change array/object shapes. "
+        "IMPORTANT: Do NOT translate person names in 'assignee' if they look like names; keep them as-is. "
+        "Return ONLY a valid JSON object and nothing else."
+    )
+
+
+def _translate_payload_with_gemini(core_payload: dict, target_language: str) -> dict:
+    if not GEMINI_API_KEY:
+        raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
+
+    system_prompt = _build_translation_json_system_prompt(target_language)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    input_json = json.dumps(core_payload, ensure_ascii=False)
+    prompt = f"{system_prompt}\n\nINPUT_JSON:\n{input_json}"
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 4096,
+        },
+    }
+
+    response = requests.post(url, json=payload, timeout=60)
+    if response.status_code != 200:
+        response.raise_for_status()
+
+    data = response.json()
+    raw_output = data["candidates"][0]["content"]["parts"][0]["text"]
+    cleaned = _strip_markdown_json(raw_output)
+    parsed = json.loads(cleaned)
+
+    return {
+        "summary_text": parsed.get("summary_text", core_payload.get("summary_text", "")),
+        "key_topics": parsed.get("key_topics", core_payload.get("key_topics", [])),
+        "decisions": _normalize_decisions(parsed.get("decisions", core_payload.get("decisions", []))),
+        "action_items": _normalize_action_items(parsed.get("action_items", core_payload.get("action_items", []))),
+    }
+
+
+def _translate_payload_with_ollama(core_payload: dict, target_language: str) -> dict:
+    system_prompt = _build_translation_json_system_prompt(target_language)
+    input_json = json.dumps(core_payload, ensure_ascii=False)
+
+    payload = {
+        "model": get_active_ollama_model(),
+        "system": system_prompt,
+        "prompt": input_json,
+        "stream": False,
+        "format": "json",
+        "options": {
+            "temperature": 0.1,
+            "num_predict": 2048,
+        },
+    }
+
+    response = requests.post(OLLAMA_API_URL, json=payload, timeout=180)
+    if response.status_code != 200:
+        response.raise_for_status()
+
+    data = response.json()
+    raw_output = data.get("response", "")
+    cleaned = _strip_markdown_json(raw_output)
+    parsed = json.loads(cleaned)
+
+    return {
+        "summary_text": parsed.get("summary_text", core_payload.get("summary_text", "")),
+        "key_topics": parsed.get("key_topics", core_payload.get("key_topics", [])),
+        "decisions": _normalize_decisions(parsed.get("decisions", core_payload.get("decisions", []))),
+        "action_items": _normalize_action_items(parsed.get("action_items", core_payload.get("action_items", []))),
+    }
+
+
+def translate_text(text: str, *, target_language: str, provider: str = "ollama") -> str:
+    """Translate plain text to a target language.
+
+    This is intentionally used only for `summary_text` (not decisions/action_items).
+    If `target_language` is falsy, returns the original text.
+    """
+    if not text:
+        return text
+
+    lang = (target_language or "").strip().lower()
+    if not lang:
+        return text
+
+    if lang not in SUPPORTED_TARGET_LANGUAGES:
+        raise ValueError(f"Unsupported target_language: {lang}")
+
+    if provider == "gemini":
+        return _translate_with_gemini(text, lang)
+    return _translate_with_ollama(text, lang)
+
+
+def _build_translation_system_prompt(target_language: str) -> str:
+    language_name = SUPPORTED_TARGET_LANGUAGES.get(target_language, target_language)
+    return (
+        "You are a professional translator. "
+        f"Translate the user's text into {language_name}. "
+        "Preserve meaning and intent. Keep proper nouns as-is when appropriate. "
+        "Return ONLY the translated text. Do not add quotes, explanations, or formatting."
+    )
+
+
+def _translate_with_gemini(text: str, target_language: str) -> str:
+    if not GEMINI_API_KEY:
+        raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
+
+    system_prompt = _build_translation_system_prompt(target_language)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": f"{system_prompt}\n\nTEXT:\n{text}",
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 2048,
+        },
+    }
+
+    response = requests.post(url, json=payload, timeout=60)
+    if response.status_code != 200:
+        response.raise_for_status()
+
+    data = response.json()
+    raw_output = data["candidates"][0]["content"]["parts"][0]["text"]
+    translated = _strip_markdown_json(raw_output).strip()
+    return translated
+
+
+def _translate_with_ollama(text: str, target_language: str) -> str:
+    system_prompt = _build_translation_system_prompt(target_language)
+    payload = {
+        "model": get_active_ollama_model(),
+        "system": system_prompt,
+        "prompt": text,
+        "stream": False,
+        "options": {
+            "temperature": 0.2,
+            "num_predict": 1024,
+        },
+    }
+
+    response = requests.post(OLLAMA_API_URL, json=payload, timeout=120)
+    if response.status_code != 200:
+        response.raise_for_status()
+
+    data = response.json()
+    raw_output = data.get("response", "")
+    translated = _strip_markdown_json(raw_output).strip()
+    return translated
+
 def _strip_markdown_json(raw: str) -> str:
     """
     Strip markdown codeblock wrapper nếu LLM trả dạng ```json ... ```.

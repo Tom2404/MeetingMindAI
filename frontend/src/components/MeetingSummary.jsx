@@ -16,6 +16,16 @@ const IconUser = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="non
 const IconCalendar = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 const IconTag = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>;
 
+const SUMMARY_LANGUAGE_OPTIONS = [
+  { value: '',   label: 'Giữ nguyên (theo transcript)' },
+  { value: 'vi', label: 'Tiếng Việt' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語 (Nhật)' },
+  { value: 'ko', label: '한국어 (Hàn)' },
+  { value: 'zh', label: '中文 (Trung)' },
+  { value: 'th', label: 'ภาษาไทย (Thái)' },
+];
+
 // ─── Priority badge config ───────────────────────────────────────────────────
 const PRIORITY_CONFIG = {
   high:   { label: 'Cao',    color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.08)',   icon: <circle cx="12" cy="12" r="10" fill="currentColor"/> },
@@ -240,12 +250,15 @@ const parseTranscriptToChunks = (text) => {
 const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSummaryId, token, meetingInfo, onSaveStateChange }) => {
   const { notify, confirm } = useNotification();
   const [summaryData, setSummaryData]       = useState(null);
+  const [summaryDataOriginal, setSummaryDataOriginal] = useState(null);
+  const [showOriginalLanguage, setShowOriginalLanguage] = useState(false);
   const [isLoading, setIsLoading]           = useState(false);
   const [errorMsg, setErrorMsg]             = useState('');
   const [errorType, setErrorType]           = useState('');
   const [loadingSeconds, setLoadingSeconds] = useState(0);
   const [isSaved, setIsSaved]               = useState(false);
   const [aiProvider, setAiProvider]         = useState('gemini'); 
+  const [targetSummaryLanguage, setTargetSummaryLanguage] = useState('');
   const [editableTranscript, setEditableTranscript] = useState('');
   const [transcriptChunks, setTranscriptChunks]   = useState([]);
   const [activeTab, setActiveTab]           = useState('summary'); 
@@ -284,7 +297,13 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   }, [isLoading]);
 
   const loadSavedSummary = async (mId) => {
-    setIsLoading(true); setErrorMsg(''); setErrorType(''); setSummaryData(null); setIsSaved(true);
+    setIsLoading(true);
+    setErrorMsg('');
+    setErrorType('');
+    setSummaryData(null);
+    setSummaryDataOriginal(null);
+    setShowOriginalLanguage(false);
+    setIsSaved(true);
     try {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -352,7 +371,9 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         transcript: editableTranscript || activeTranscript,
         meeting_id: finalMeetingId,
         ai_provider: overrideProvider || aiProvider,
-        custom_prompt: customPromptText
+        custom_prompt: customPromptText,
+        // Chỉ dịch phần nội dung tóm tắt (summary_text)
+        target_language: targetSummaryLanguage
       };
 
       const res = await fetch(`${API_BASE_URL}/api/v1/meetings/summarize`, {
@@ -369,10 +390,15 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
         return;
       }
       const responseData = await res.json();
+      const translatedOrDefault = responseData.data;
+      const original = responseData.data_original || null;
       setSummaryData({
-        ...responseData.data,
+        ...translatedOrDefault,
         id: responseData.saved_id
       });
+      setSummaryDataOriginal(original);
+      // Nếu có target_language thì mặc định hiển thị bản dịch; còn không thì hiển thị bản hiện tại
+      setShowOriginalLanguage(false);
       setActiveTab('summary');
       if (responseData.saved_id) setIsSaved(true);
     } catch (err) {
@@ -385,12 +411,19 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const toggleActionItem = async (uid) => {
     if (!summaryData) return;
     const oldSummaryData = { ...summaryData };
+    const oldOriginal = summaryDataOriginal ? { ...summaryDataOriginal } : null;
     const updated = summaryData.action_items.map((item, i) =>
       (item.id || i) === uid ? { ...item, completed: !item.completed } : item
     );
     
     // Cập nhật trạng thái React trước để có phản hồi UI nhanh (UX)
     setSummaryData({ ...summaryData, action_items: updated });
+    if (summaryDataOriginal?.action_items) {
+      const updatedOriginal = summaryDataOriginal.action_items.map((item, i) =>
+        (item.id || i) === uid ? { ...item, completed: !item.completed } : item
+      );
+      setSummaryDataOriginal({ ...summaryDataOriginal, action_items: updatedOriginal });
+    }
     
     // Đồng bộ với Backend
     try {
@@ -414,6 +447,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       console.error("Lỗi khi lưu trạng thái task:", err);
       // Hoàn tác lại trạng thái UI nếu lưu thất bại
       setSummaryData(oldSummaryData);
+      if (oldOriginal) setSummaryDataOriginal(oldOriginal);
       notify("Không thể lưu trạng thái công việc. Vui lòng kiểm tra kết nối.", "error");
     }
   };
@@ -426,10 +460,15 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     if (!confirmed) return;
     
     const oldSummaryData = { ...summaryData };
+    const oldOriginal = summaryDataOriginal ? { ...summaryDataOriginal } : null;
     const updated = summaryData.action_items.filter((item, i) => (item.id || i) !== uid);
     
     // Cập nhật trạng thái React trước
     setSummaryData({ ...summaryData, action_items: updated });
+    if (summaryDataOriginal?.action_items) {
+      const updatedOriginal = summaryDataOriginal.action_items.filter((item, i) => (item.id || i) !== uid);
+      setSummaryDataOriginal({ ...summaryDataOriginal, action_items: updatedOriginal });
+    }
     
     // Đồng bộ với Backend
     try {
@@ -454,11 +493,13 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       console.error("Lỗi khi xóa task:", err);
       // Hoàn tác lại trạng thái UI nếu lưu thất bại
       setSummaryData(oldSummaryData);
+      if (oldOriginal) setSummaryDataOriginal(oldOriginal);
       notify("Không thể xóa công việc. Vui lòng kiểm tra kết nối.", "error");
     }
   };
 
   const startEditing = () => {
+    if (showOriginalLanguage) setShowOriginalLanguage(false);
     setEditFormData(JSON.parse(JSON.stringify(summaryData))); // deep copy
     setIsEditing(true);
   };
@@ -489,6 +530,9 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       if (!res.ok) throw new Error('Cập nhật thất bại');
       
       setSummaryData(editFormData);
+      // Sau khi chỉnh sửa, bản gốc không còn chắc chắn đồng bộ
+      setSummaryDataOriginal(null);
+      setShowOriginalLanguage(false);
       setIsEditing(false);
       setIsSaved(true);
       notify("Đã lưu thay đổi thành công", "success");
@@ -533,7 +577,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   };
 
   const handleExportTxt = () => {
-    if (!summaryData) return;
+    if (!displayedSummaryData) return;
     const title = meetingInfo?.meetingName || meetingId || 'Meeting';
     let t = `KẾT QUẢ CUỘC HỌP: ${title}\n${'='.repeat(50)}\n\n`;
     if (meetingInfo) {
@@ -541,15 +585,15 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       if (meetingInfo.participants) t += `Tham dự: ${meetingInfo.participants}\n`;
       t += '\n';
     }
-    t += `1. TÓM TẮT\n${'-'.repeat(30)}\n${summaryData.summary_text}\n\n`;
+    t += `1. TÓM TẮT\n${'-'.repeat(30)}\n${displayedSummaryData.summary_text}\n\n`;
     t += `2. CÁC QUYẾT ĐỊNH\n${'-'.repeat(30)}\n`;
-    (summaryData.decisions || []).forEach((d, i) => {
+    (displayedSummaryData.decisions || []).forEach((d, i) => {
       if (typeof d === 'string') { t += `${i+1}. ${d}\n`; }
       else { t += `${i+1}. [${d.subject}] ${d.action} → ${d.outcome}\n`; }
     });
-    if (!(summaryData.decisions || []).length) t += 'Không có quyết định nào được chốt.\n';
+    if (!(displayedSummaryData.decisions || []).length) t += 'Không có quyết định nào được chốt.\n';
     t += `\n3. ACTION ITEMS\n${'-'.repeat(30)}\n`;
-    (summaryData.action_items || []).forEach(item => {
+    (displayedSummaryData.action_items || []).forEach(item => {
       const chk = item.completed ? '[x]' : '[ ]';
       const pri = item.priority ? `[${item.priority.toUpperCase()}] ` : '';
       t += `${chk} ${pri}${item.task_name}\n    Phụ trách: ${item.assignee || 'Trống'} | Hạn: ${item.deadline || 'Trống'}\n`;
@@ -562,7 +606,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   };
 
   const handleExportMarkdown = () => {
-    if (!summaryData) return;
+    if (!displayedSummaryData) return;
     const title = meetingInfo?.meetingName || meetingId || 'Meeting';
     let md = `# BIÊN BẢN CUỘC HỌP: ${title}\n\n`;
     if (meetingInfo) {
@@ -570,7 +614,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       if (meetingInfo.participants) md += `**Thành phần tham dự:** ${meetingInfo.participants}  \n`;
       md += '\n';
     }
-    md += `## 1. Tóm Tắt Cuộc Họp\n${summaryData.summary_text}\n\n`;
+    md += `## 1. Tóm Tắt Cuộc Họp\n${displayedSummaryData.summary_text}\n\n`;
     
     if (keyTopics && keyTopics.length > 0) {
       md += `**Chủ đề chính:** ${keyTopics.map(t => `\`${t}\``).join(', ')}\n\n`;
@@ -607,7 +651,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   };
 
   const handleExportDocx = () => {
-    if (!summaryData) return;
+    if (!displayedSummaryData) return;
     const title = meetingInfo?.meetingName || meetingId || 'Meeting';
     
     // Tạo cấu trúc HTML có style chuyên nghiệp để MS Word đọc trực tiếp
@@ -644,7 +688,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     // Section 1: Summary
     html += `<div class="section-card section-card--blue">`;
     html += `<h2>1. Tóm Tắt Nội Dung</h2>`;
-    html += `<p>${summaryData.summary_text.replace(/\n/g, '<br>')}</p>`;
+    html += `<p>${displayedSummaryData.summary_text.replace(/\n/g, '<br>')}</p>`;
     if (keyTopics && keyTopics.length > 0) {
       html += `<p><b>Chủ đề chính:</b> ${keyTopics.join(', ')}</p>`;
     }
@@ -845,12 +889,24 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   const title = meetingInfo?.meetingName || meetingId || 'Chưa đặt tên';
   
+  const displayedSummaryData = (showOriginalLanguage && summaryDataOriginal) ? summaryDataOriginal : summaryData;
+
   // Data for viewing
-  const decisions = summaryData?.decisions || [];
-  const actionItems = summaryData?.action_items || [];
-  const keyTopics = summaryData?.key_topics || [];
+  const decisions = displayedSummaryData?.decisions || [];
+  const actionItems = displayedSummaryData?.action_items || [];
+  const keyTopics = displayedSummaryData?.key_topics || [];
   const completedCount = actionItems.filter(i => i.completed).length;
-  const hasSummary = !!summaryData;
+  const hasSummary = !!displayedSummaryData;
+
+  const canToggleLanguage = !!summaryDataOriginal;
+  const toggleLanguageView = () => {
+    if (!canToggleLanguage) return;
+    if (isEditing) {
+      setIsEditing(false);
+      setEditFormData(null);
+    }
+    setShowOriginalLanguage(v => !v);
+  };
 
   const renderAiSelector = () => {
     return (
@@ -915,6 +971,25 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
           >
             <span style={{ fontWeight: 700, color: aiProvider === 'ollama' ? 'var(--google-blue)' : 'var(--text-primary)', fontSize: 'var(--text-sm)', letterSpacing: '0.2px' }}>Ollama Local AI</span>
             <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.4 }}>Bảo mật 100%, chạy offline (Qwen 2.5)</span>
+          </div>
+        </div>
+
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            Ngôn ngữ bản tóm tắt
+          </label>
+          <select
+            value={targetSummaryLanguage}
+            onChange={(e) => setTargetSummaryLanguage(e.target.value)}
+            className="mm-input"
+            style={{ width: '100%' }}
+          >
+            {SUMMARY_LANGUAGE_OPTIONS.map(opt => (
+              <option key={opt.value || 'keep'} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+            Dịch “Tóm tắt”, “Quyết định” và “Công việc”. Có thể bật xem ngôn ngữ gốc sau khi tóm tắt.
           </div>
         </div>
 
@@ -1133,7 +1208,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
           {isSaved ? (
             <span className="mm-badge mm-badge--saved" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconSave/> Đã lưu</span>
           ) : (
-            summaryData && (
+            displayedSummaryData && (
               <button 
                 className="mm-btn mm-btn--sm mm-btn--success animate-pulse" 
                 onClick={handleSaveSummaryToDb}
@@ -1155,6 +1230,16 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                 <IconSave /> Lưu kết quả
               </button>
             )
+          )}
+
+          {canToggleLanguage && (
+            <button
+              className="mm-btn mm-btn--sm mm-btn--ghost"
+              onClick={toggleLanguageView}
+              title={showOriginalLanguage ? 'Đang hiển thị ngôn ngữ gốc' : 'Đang hiển thị bản dịch'}
+            >
+              {showOriginalLanguage ? 'Hiển thị bản dịch' : 'Hiển thị ngôn ngữ gốc'}
+            </button>
           )}
         </div>
       </div>
@@ -1396,7 +1481,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
                       style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid var(--primary-300)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
                     />
                   ) : (
-                    <p className="summary__text" style={{ whiteSpace: 'pre-line' }}>{summaryData.summary_text}</p>
+                    <p className="summary__text" style={{ whiteSpace: 'pre-line' }}>{displayedSummaryData.summary_text}</p>
                   )}
                   <KeyTopicTags topics={keyTopics} />
                 </div>
@@ -1595,7 +1680,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
             <div className="print-section">
               <h2 className="print-section-title">1. TÓM TẮT NỘI DUNG CUỘC HỌP</h2>
               <div className="print-section-content" style={{ whiteSpace: 'pre-line' }}>
-                {summaryData.summary_text}
+                {displayedSummaryData.summary_text}
               </div>
               {keyTopics && keyTopics.length > 0 && (
                 <div style={{ marginTop: '12px', fontSize: '10.5pt', color: '#4b5563' }}>

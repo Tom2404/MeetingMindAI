@@ -14,7 +14,7 @@ from ..services.ai_job_service import (
     mark_job_success,
 )
 from ..services.settings_service import get_setting_int
-from ..services.llm_service import generate_meeting_summary
+from ..services.llm_service import generate_meeting_summary, translate_summary_payload
 from .auth_router import get_current_user, get_optional_user
 
 router = APIRouter(prefix="/api/v1/meetings", tags=["summary"])
@@ -26,6 +26,7 @@ class SummaryRequest(BaseModel):
     ai_provider: Optional[str] = "ollama"  # "ollama" hoặc "gemini"
     custom_prompt: Optional[str] = None  # Custom Prompt chỉ định bối cảnh tóm tắt
     save_to_db: Optional[bool] = False
+    target_language: Optional[str] = None  # Chỉ áp dụng cho phần nội dung tóm tắt (summary_text). Nếu None/"" thì giữ nguyên.
 
 
 class SummaryUpdateRequest(BaseModel):
@@ -86,12 +87,29 @@ def summarize_meeting(
                 meeting_title = meeting.title
 
         # Gọi trực tiếp qua service LLM (truyền thêm custom_prompt và meeting_title)
-        result_payload = generate_meeting_summary(
+        original_payload = generate_meeting_summary(
             transcript_text=request.transcript,
             provider=request.ai_provider,
             custom_prompt=custom_prompt,
             meeting_title=meeting_title
         )
+
+        target_language = (request.target_language or "").strip().lower() or None
+        result_payload = original_payload
+        if target_language:
+            try:
+                result_payload = translate_summary_payload(
+                    original_payload,
+                    target_language=target_language,
+                    provider=request.ai_provider,
+                )
+            except ValueError as ve:
+                raise HTTPException(status_code=400, detail=str(ve))
+            if isinstance(result_payload.get("processing_metadata"), dict):
+                result_payload["processing_metadata"] = {
+                    **result_payload["processing_metadata"],
+                    "target_language": target_language,
+                }
 
         # Lưu kết quả vào Database nếu có meeting_id và yêu cầu save_to_db
         saved_id = None
@@ -120,6 +138,7 @@ def summarize_meeting(
         return {
             "message": "Trích xuất bằng Trí Tuệ Nhân Tạo Llama 3.2 thành công.",
             "data": result_payload,
+            "data_original": original_payload,
             "saved_id": saved_id
         }
     except Exception as e:
