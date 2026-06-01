@@ -19,6 +19,7 @@ import TemplatesPage from './pages/TemplatesPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 
 // Admin Pages
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminLogsPage from './pages/admin/AdminLogsPage';
 import AdminAIPage from './pages/admin/AdminAIPage';
@@ -60,7 +61,7 @@ const UserRoute = ({ children }) => {
 
   if (isCheckingAuth) return null;
   if (!currentUser) return <Navigate to="/login" />;
-  if (currentUser.role === 'admin') return <Navigate to="/status" />;
+  if (currentUser.role === 'admin') return <Navigate to="/admin/dashboard" />;
 
   return children;
 };
@@ -132,6 +133,14 @@ const AppRoutes = () => {
           </UserRoute>
         } />
 
+        <Route
+          path="admin/dashboard"
+          element={
+            <AdminRoute>
+              <AdminDashboardPage />
+            </AdminRoute>
+          }
+        />
         <Route
           path="admin/users"
           element={

@@ -41,6 +41,9 @@ def list_users(
     db: Session = Depends(get_db),
     current_admin: User = Depends(require_admin_user),
 ):
+    from sqlalchemy import func
+    from ..models import Meeting
+
     q = db.query(User)
     if not include_inactive:
         q = q.filter(User.is_active == True)  # noqa: E712
@@ -51,21 +54,36 @@ def list_users(
     total = q.count()
     rows = q.order_by(User.created_at.desc()).offset(max(offset, 0)).limit(min(max(limit, 1), 200)).all()
 
+    # Calculate global totals to determine the usage ratio
+    global_duration = db.query(func.sum(Meeting.duration_seconds)).scalar() or 0
+
+    users_list = []
+    for u in rows:
+        # Sum of durations for this specific user
+        user_duration = db.query(func.sum(Meeting.duration_seconds)).filter(Meeting.user_id == u.id).scalar() or 0
+        meeting_count = db.query(Meeting).filter(Meeting.user_id == u.id).count()
+        
+        # System usage ratio
+        ratio = round((user_duration / global_duration) * 100, 2) if global_duration > 0 else 0.0
+
+        users_list.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": u.role,
+            "is_active": bool(u.is_active),
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "meeting_count": meeting_count,
+            "total_duration_seconds": user_duration,
+            "usage_ratio": ratio
+        })
+
     return {
         "total": total,
-        "users": [
-            {
-                "id": u.id,
-                "username": u.username,
-                "email": u.email,
-                "full_name": u.full_name,
-                "role": u.role,
-                "is_active": bool(u.is_active),
-                "created_at": u.created_at.isoformat() if u.created_at else None,
-            }
-            for u in rows
-        ],
+        "users": users_list,
     }
+
 
 
 def _write_audit_log(
@@ -337,3 +355,41 @@ def get_queue_metrics(
             "running": recent_running,
         },
     }
+
+
+@router.post("/ai/jobs/{job_id}/abort")
+def abort_ai_job(
+    job_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin_user),
+):
+    job = db.query(AIJob).filter(AIJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ AI")
+    
+    if job.status not in ["queued", "running"]:
+        raise HTTPException(status_code=400, detail="Chỉ có thể hủy tác vụ đang chạy hoặc đang chờ")
+
+    job.status = "failed"
+    job.error = "Bị hủy bởi quản trị viên."
+    job.finished_at = datetime.now(timezone.utc)
+
+    # Nếu có meeting liên quan, cập nhật trạng thái meeting nếu nó đang bị treo ở processing
+    if job.meeting_id:
+        from ..models import Meeting, MeetingStatus
+        meeting = db.query(Meeting).filter(Meeting.id == job.meeting_id).first()
+        if meeting and meeting.status == MeetingStatus.PROCESSING:
+            meeting.status = MeetingStatus.FAILED
+
+    _write_audit_log(
+        db,
+        actor_user_id=current_admin.id,
+        action="ai.job.abort",
+        target_user_id=job.user_id,
+        ip=request.client.host if request.client else None,
+        metadata={"job_id": job.id, "job_type": job.job_type}
+    )
+
+    db.commit()
+    return {"message": "Đã hủy tác vụ AI thành công", "job_id": job.id}

@@ -5,7 +5,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 
 const AdminAIPage = () => {
   const { token } = useAuth();
-  const { notify } = useNotification();
+  const { notify, confirm } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,9 +45,11 @@ const AdminAIPage = () => {
   };
 
   useEffect(() => {
-    fetchAll();
+    if (token) {
+      fetchAll();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]);
 
   const saveLimits = async () => {
     setSaving(true);
@@ -68,10 +70,37 @@ const AdminAIPage = () => {
       if (!res.ok) throw new Error(data.detail || 'Lưu cấu hình thất bại');
       setLimits(data.limits || limits);
       notify('Đã cập nhật limit', 'success');
+      fetchAll();
     } catch (e) {
       notify(e.message || 'Lỗi lưu cấu hình', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleAbortJob = async (job) => {
+    const ok = await confirm(
+      `Bạn có chắc chắn muốn hủy tác vụ AI này không? Trạng thái cuộc họp liên quan sẽ bị chuyển sang Thất bại.`,
+      'Hủy tác vụ AI',
+      'Hủy tác vụ',
+      'Hủy'
+    );
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/ai/jobs/${job.id}/abort`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Hủy tác vụ AI thất bại');
+      notify(data.message || 'Đã hủy tác vụ AI thành công', 'success');
+      await fetchAll();
+    } catch (e) {
+      notify(e.message || 'Lỗi hủy tác vụ AI', 'error');
     }
   };
 
@@ -147,6 +176,7 @@ const AdminAIPage = () => {
                   <th style={{ padding: '12px 16px' }}>Meeting</th>
                   <th style={{ padding: '12px 16px' }}>Duration</th>
                   <th style={{ padding: '12px 16px' }}>Error</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -154,13 +184,28 @@ const AdminAIPage = () => {
                   <tr key={j.id} style={{ borderTop: '1px solid var(--border-default)' }}>
                     <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{j.id}</td>
                     <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{j.job_type}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{j.status}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span className={`mm-badge ${j.status === 'success' ? 'mm-badge--success' : j.status === 'failed' ? 'mm-badge--danger' : j.status === 'running' ? 'mm-badge--info' : 'mm-badge--warning'}`} style={{ fontWeight: 600 }}>
+                        {j.status?.toUpperCase()}
+                      </span>
+                    </td>
                     <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{j.meeting_id ?? '—'}</td>
                     <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{j.duration_ms != null ? `${j.duration_ms}ms` : '—'}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-primary)', maxWidth: '420px' }}>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-primary)', maxWidth: '320px' }}>
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={j.error || ''}>
                         {j.error || '—'}
                       </div>
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      {(j.status === 'queued' || j.status === 'running') ? (
+                        <button
+                          className="mm-btn mm-btn--sm mm-btn--danger"
+                          onClick={() => toggleAbortJob(j)}
+                          style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '4px' }}
+                        >
+                          Hủy
+                        </button>
+                      ) : '—'}
                     </td>
                   </tr>
                 ))}

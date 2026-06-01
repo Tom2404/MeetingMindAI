@@ -3,6 +3,16 @@ import API_BASE_URL from '../../config';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 
+const formatDuration = (seconds) => {
+  if (!seconds) return '0 giây';
+  if (seconds < 60) return `${seconds} giây`;
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60) return `${mins} phút`;
+  const hrs = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return `${hrs} giờ ${remainingMins > 0 ? `${remainingMins} phút` : ''}`;
+};
+
 const AdminUsersPage = () => {
   const { token, currentUser } = useAuth();
   const { notify, confirm } = useNotification();
@@ -110,6 +120,9 @@ const AdminUsersPage = () => {
                 <tr style={{ textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
                   <th style={{ padding: '12px 16px' }}>User</th>
                   <th style={{ padding: '12px 16px' }}>Email</th>
+                  <th style={{ padding: '12px 16px' }}>Tần suất</th>
+                  <th style={{ padding: '12px 16px' }}>Thời lượng</th>
+                  <th style={{ padding: '12px 16px' }}>Tỷ lệ sử dụng</th>
                   <th style={{ padding: '12px 16px' }}>Role</th>
                   <th style={{ padding: '12px 16px' }}>Trạng thái</th>
                   <th style={{ padding: '12px 16px' }}></th>
@@ -125,6 +138,11 @@ const AdminUsersPage = () => {
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{u.full_name || '—'}</div>
                       </td>
                       <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{u.email}</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>{u.meeting_count ?? 0} cuộc họp</td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{formatDuration(u.total_duration_seconds)}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className="mm-badge mm-badge--info" style={{ fontWeight: 600 }}>{u.usage_ratio ?? 0}%</span>
+                      </td>
                       <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{u.role || 'user'}</td>
                       <td style={{ padding: '12px 16px' }}>
                         <span className={`mm-badge ${u.is_active ? 'mm-badge--success' : 'mm-badge--danger'}`}>

@@ -67,6 +67,7 @@ const MainLayout = () => {
   if (location.pathname === '/profile') headerTitle = 'Hồ sơ & Cài đặt';
   if (location.pathname === '/templates') headerTitle = 'Thư viện Mẫu Prompt AI';
   if (location.pathname === '/analytics') headerTitle = 'Phân Tích & Thống Kê';
+  if (location.pathname === '/admin/dashboard') headerTitle = 'Bảng điều khiển';
   if (location.pathname === '/admin/users') headerTitle = 'Quản trị người dùng';
   if (location.pathname === '/admin/logs') headerTitle = 'Log sự cố';
   if (location.pathname === '/admin/ai') headerTitle = 'Giám sát AI & Limit';
@@ -140,6 +141,13 @@ const MainLayout = () => {
           {currentUser?.role === 'admin' && (
             <>
               <span className="sidebar__section-label">Quản trị</span>
+              <button
+                className={`sidebar__item ${location.pathname === '/admin/dashboard' ? 'sidebar__item--active' : ''}`}
+                onClick={() => { navigate('/admin/dashboard'); closeSidebar(); }}
+              >
+                <IconAnalytics />
+                Bảng điều khiển
+              </button>
               <button
                 className={`sidebar__item ${location.pathname === '/admin/users' ? 'sidebar__item--active' : ''}`}
                 onClick={() => { navigate('/admin/users'); closeSidebar(); }}
