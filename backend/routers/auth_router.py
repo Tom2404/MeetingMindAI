@@ -78,6 +78,13 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
     return user
 
 
+def require_admin_user(current_user: User = Depends(get_current_user)):
+    """Dependency dùng cho các endpoint chỉ dành cho admin."""
+    if (current_user.role or "user") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới có quyền truy cập.")
+    return current_user
+
+
 def get_optional_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """
     Dependency mềm: Trả về User nếu có token hợp lệ, trả None nếu không có.
@@ -139,7 +146,8 @@ def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
             "username": new_user.username,
             "email": new_user.email,
             "full_name": new_user.full_name,
-            "avatar_url": None
+            "avatar_url": None,
+            "role": new_user.role
         }
     }
 
@@ -170,7 +178,8 @@ def login_user(request: LoginRequest, db: Session = Depends(get_db)):
             "username": user.username,
             "email": user.email,
             "full_name": user.full_name,
-            "avatar_url": user.avatar_url
+            "avatar_url": user.avatar_url,
+            "role": user.role
         }
     }
 
@@ -187,6 +196,7 @@ def get_me(current_user: User = Depends(get_current_user)):
             "email": current_user.email,
             "full_name": current_user.full_name,
             "avatar_url": current_user.avatar_url,
+            "role": current_user.role,
             "created_at": str(current_user.created_at)
         }
     }

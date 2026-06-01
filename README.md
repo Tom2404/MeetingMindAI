@@ -52,6 +52,12 @@ SECRET_KEY="meetingmind_secret_key_123456"
 ALGORITHM="HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
+# Admin bootstrap (optional)
+# If set, the backend will auto-create/update this admin account at startup.
+ADMIN_USERNAME="admin"
+ADMIN_PASSWORD="change_me"
+ADMIN_EMAIL="admin@local"
+
 # Cloud AI Configuration (Google Gemini) - Leave empty if running 100% Offline
 GEMINI_API_KEY="AIzaSy_YOUR_GEMINI_API_KEY_HERE"
 

@@ -18,6 +18,11 @@ import AuthPage from './components/AuthPage';
 import TemplatesPage from './pages/TemplatesPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 
+// Admin Pages
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminLogsPage from './pages/admin/AdminLogsPage';
+import AdminAIPage from './pages/admin/AdminAIPage';
+
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
   const { currentUser, isCheckingAuth } = useAuth();
@@ -37,6 +42,26 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" />;
   }
   
+  return children;
+};
+
+const AdminRoute = ({ children }) => {
+  const { currentUser, isCheckingAuth } = useAuth();
+
+  if (isCheckingAuth) return null;
+  if (!currentUser) return <Navigate to="/login" />;
+  if (currentUser.role !== 'admin') return <Navigate to="/" />;
+
+  return children;
+};
+
+const UserRoute = ({ children }) => {
+  const { currentUser, isCheckingAuth } = useAuth();
+
+  if (isCheckingAuth) return null;
+  if (!currentUser) return <Navigate to="/login" />;
+  if (currentUser.role === 'admin') return <Navigate to="/status" />;
+
   return children;
 };
 
@@ -69,15 +94,68 @@ const AppRoutes = () => {
           </MeetingProvider>
         </ProtectedRoute>
       }>
-        <Route index element={<HomePage />} />
-        <Route path="room" element={<MeetingRoomPage />} />
-        <Route path="history" element={<HistoryPage />} />
-        <Route path="history/:id" element={<HistoryViewPage />} />
+        <Route index element={
+          <UserRoute>
+            <HomePage />
+          </UserRoute>
+        } />
+        <Route path="room" element={
+          <UserRoute>
+            <MeetingRoomPage />
+          </UserRoute>
+        } />
+        <Route path="history" element={
+          <UserRoute>
+            <HistoryPage />
+          </UserRoute>
+        } />
+        <Route path="history/:id" element={
+          <UserRoute>
+            <HistoryViewPage />
+          </UserRoute>
+        } />
         <Route path="status" element={<SystemStatusPage />} />
-        <Route path="tasks" element={<TasksPage />} />
+        <Route path="tasks" element={
+          <UserRoute>
+            <TasksPage />
+          </UserRoute>
+        } />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="templates" element={<TemplatesPage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="templates" element={
+          <UserRoute>
+            <TemplatesPage />
+          </UserRoute>
+        } />
+        <Route path="analytics" element={
+          <UserRoute>
+            <AnalyticsPage />
+          </UserRoute>
+        } />
+
+        <Route
+          path="admin/users"
+          element={
+            <AdminRoute>
+              <AdminUsersPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="admin/logs"
+          element={
+            <AdminRoute>
+              <AdminLogsPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="admin/ai"
+          element={
+            <AdminRoute>
+              <AdminAIPage />
+            </AdminRoute>
+          }
+        />
       </Route>
     </Routes>
   );
