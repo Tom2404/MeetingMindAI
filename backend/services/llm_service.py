@@ -403,6 +403,7 @@ def generate_meeting_summary(
     """
     Phân tích transcript cuộc họp. Hỗ trợ Local (Ollama) và Cloud (Gemini).
     Trả về dict chuẩn hoá với: summary_text, key_topics, decisions, action_items, metadata.
+    Tự động chuyển đổi sang Ollama Local AI nếu gặp lỗi API hoặc rate limit của Gemini.
 
     Args:
         transcript_text: Toàn văn bản bóc băng.
@@ -418,7 +419,11 @@ def generate_meeting_summary(
         raise ValueError("Transcript quá ngắn để phân tích.")
 
     if provider == "gemini":
-        return _generate_with_gemini(transcript_text, max_retries, custom_prompt, meeting_title)
+        try:
+            return _generate_with_gemini(transcript_text, max_retries, custom_prompt, meeting_title)
+        except Exception as e:
+            print(f"[LLM] Gemini Cloud API failed ({repr(e)}). Automatically falling back to Ollama Local AI (high accuracy)...")
+            return _generate_with_ollama(transcript_text, max_retries, custom_prompt, meeting_title)
     else:
         return _generate_with_ollama(transcript_text, max_retries, custom_prompt, meeting_title)
 
@@ -427,7 +432,8 @@ def _generate_with_gemini(transcript_text: str, max_retries: int, custom_prompt:
     if not GEMINI_API_KEY:
         raise RuntimeError("Chưa cấu hình GEMINI_API_KEY trong hệ thống.")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # Các mô hình đám mây của Gemini xếp theo thứ tự ưu tiên giảm dần
+    gemini_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro", "gemini-2.0-flash-lite"]
     
     # Thiết lập System Prompt và ghép thêm chỉ thị custom nếu có
     system_prompt = SYSTEM_PROMPT
@@ -453,48 +459,62 @@ def _generate_with_gemini(transcript_text: str, max_retries: int, custom_prompt:
     }
 
     last_error = None
-    for attempt in range(max_retries + 1):
-        try:
-            print(f"[LLM] Sending summary request to Gemini API"
-                  f"{f' — attempt {attempt+1}/{max_retries+1}' if attempt > 0 else ''}...")
 
-            response = requests.post(url, json=payload, timeout=60)
-            
-            if response.status_code != 200:
-                print(f"[Gemini Error] HTTP {response.status_code}: {response.text}")
-                response.raise_for_status()
+    for model_name in gemini_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
+        
+        print(f"[LLM] Trying Gemini model: {model_name}...")
+        
+        for attempt in range(max_retries + 1):
+            try:
+                print(f"[LLM] Sending summary request to Gemini ({model_name})"
+                      f"{f' — attempt {attempt+1}/{max_retries+1}' if attempt > 0 else ''}...")
 
-            data = response.json()
-            raw_output = data["candidates"][0]["content"]["parts"][0]["text"]
-            
-            cleaned = _strip_markdown_json(raw_output)
-            parsed = json.loads(cleaned)
+                response = requests.post(url, json=payload, timeout=60)
+                
+                if response.status_code != 200:
+                    print(f"[Gemini Error] HTTP {response.status_code} on {model_name}: {response.text}")
+                    response.raise_for_status()
 
-            result = {
-                "summary_text":  parsed.get("summary", "Không có nội dung tóm tắt."),
-                "key_topics":    parsed.get("key_topics", []),
-                "decisions":     _normalize_decisions(parsed.get("decisions", [])),
-                "action_items":  _normalize_action_items(parsed.get("action_items", [])),
-                "processing_metadata": {
-                    "model_used":        "gemini-2.5-flash",
-                    "transcript_length": len(transcript_text),
-                    "timestamp":         datetime.now(timezone.utc).isoformat(),
-                    "attempt":           attempt + 1,
+                data = response.json()
+                raw_output = data["candidates"][0]["content"]["parts"][0]["text"]
+                
+                cleaned = _strip_markdown_json(raw_output)
+                parsed = json.loads(cleaned)
+
+                result = {
+                    "summary_text":  parsed.get("summary", "Không có nội dung tóm tắt."),
+                    "key_topics":    parsed.get("key_topics", []),
+                    "decisions":     _normalize_decisions(parsed.get("decisions", [])),
+                    "action_items":  _normalize_action_items(parsed.get("action_items", [])),
+                    "processing_metadata": {
+                        "model_used":        model_name,
+                        "transcript_length": len(transcript_text),
+                        "timestamp":         datetime.now(timezone.utc).isoformat(),
+                        "attempt":           attempt + 1,
+                    }
                 }
-            }
-            print(f"[LLM] [OK] Gemini Success")
-            return result
+                print(f"[LLM] [OK] Gemini {model_name} Success")
+                return result
 
-        except json.JSONDecodeError as e:
-            last_error = e
-            print(f"[LLM JSON Error] Gemini Attempt {attempt+1}: Invalid JSON — {str(e)}")
-            if attempt < max_retries:
-                time.sleep(2)
-                continue
-            raise RuntimeError(f"Gemini không trả về JSON hợp lệ: {str(last_error)}")
-        except Exception as e:
-            print(f"[LLM Error] Gemini attempt {attempt+1}: {str(e)}")
-            raise
+            except json.JSONDecodeError as e:
+                last_error = e
+                print(f"[LLM JSON Error] Gemini ({model_name}) Attempt {attempt+1}: Invalid JSON — {str(e)}")
+                if attempt < max_retries:
+                    time.sleep(2)
+                    continue
+                break
+                
+            except Exception as e:
+                last_error = e
+                print(f"[LLM Error] Gemini ({model_name}) attempt {attempt+1} failed: {str(e)}")
+                if attempt < max_retries:
+                    time.sleep(2)
+                    continue
+                break
+                
+    # Nếu chạy hết danh sách model mà vẫn lỗi
+    raise RuntimeError(f"Tất cả các model Gemini đều thất bại. Lỗi cuối cùng: {repr(last_error)}")
 
 
 def _generate_with_ollama(transcript_text: str, max_retries: int, custom_prompt: str = None, meeting_title: str = None) -> dict:

@@ -1,11 +1,14 @@
 import os
 import time
 import re
+import json
+import requests
 import subprocess
 import concurrent.futures
 import glob
 from faster_whisper import WhisperModel
 from google import genai
+from google.genai import types
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -62,18 +65,131 @@ def get_model():
         print(f"[STT-LOCAL] Success: Model '{MODEL_SIZE}' is ready.")
     return _model
 
-def transcribe_audio_local(audio_path: str) -> str:
+def semantically_diarize_whisper_chunks(chunks: list, host: str = None, participants: str = None) -> list:
     """
-    Bóc băng audio → văn bản với độ chính xác cao nhất.
+    Sử dụng LLM (Gemini hoặc Ollama) để gán nhãn người nói (Speaker Diarization)
+    cho các đoạn thoại thô từ Whisper dựa trên ngữ cảnh đối thoại.
+    """
+    if not chunks:
+        return []
+        
+    print("[STT-LOCAL] Aligning speaker labels semantically using LLM...")
+    
+    formatted_dialogue = []
+    for idx, chunk in enumerate(chunks[:200]):  # Xử lý tối đa 200 câu thoại
+        formatted_dialogue.append(f"[{idx + 1}] Unknown: {chunk['text']}")
+        
+    dialogue_str = "\n".join(formatted_dialogue)
+    
+    speaker_context = ""
+    if host or participants:
+        speaker_context = "\nThông tin người tham gia thực tế cuộc họp:\n"
+        if host:
+            speaker_context += f"- Người chủ trì (Host): {host}\n"
+        if participants:
+            speaker_context += f"- Danh sách người tham gia khác: {participants}\n"
+            
+    prompt = f"""Bạn là chuyên gia phân tích hội thoại cấp cao.
+    Dưới đây là văn bản bóc băng từ cuộc họp, nhưng nhãn người nói chưa được phân biệt (đang để là Unknown).
+    {speaker_context}
+    Nhiệm vụ của bạn:
+    1. Đọc kỹ ngữ cảnh đàm thoại, các đại từ xưng hô, vai trò và luồng đối thoại để suy luận người nói chính xác nhất cho từng câu thoại.
+    2. Gán nhãn tên thật nếu xác định được chắc chắn, hoặc dùng [Người nói A], [Người nói B],... một cách nhất quán.
+    3. Trả về kết quả duy nhất dưới dạng MỘT mảng JSON chứa các đối tượng có cấu trúc chính xác sau:
+       [
+         {{"index": 1, "speaker": "Tên người nói"}},
+         {{"index": 2, "speaker": "Tên người nói"}},
+         ...
+       ]
+    LƯU Ý QUAN TRỌNG:
+    - Không được thêm lời dẫn, lời giải thích hay ký tự nào ngoài JSON.
+    - Giữ nguyên văn nội dung câu nói của người dùng, chỉ gán nhãn người nói.
+    
+    HỘI THOẠI CẦN XỬ LÝ:
+    {dialogue_str}
+    """
+    
+    result_json = ""
+    
+    # Thử bằng Gemini trước nếu có API Key
+    if GEMINI_API_KEY:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        gemini_diarize_fallbacks = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"]
+        if GEMINI_STT_MODEL not in gemini_diarize_fallbacks:
+            gemini_diarize_fallbacks.insert(0, GEMINI_STT_MODEL)
+            
+        model_to_use = gemini_diarize_fallbacks[0]
+        
+        for attempt in range(len(gemini_diarize_fallbacks)):
+            try:
+                print(f"[STT-LOCAL] Call Gemini ({model_to_use}) to diarize speakers semantically...")
+                config = types.GenerateContentConfig(
+                    temperature=0.0,
+                    system_instruction="Bạn là chuyên gia phân tích hội thoại cấp cao. Hãy luôn định danh người nói chính xác và trả về mảng JSON theo đúng định dạng được yêu cầu."
+                )
+                response = client.models.generate_content(
+                    model=model_to_use,
+                    contents=[prompt],
+                    config=config
+                )
+                raw_output = response.text.strip()
+                match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw_output, re.IGNORECASE)
+                result_json = match.group(1).strip() if match else raw_output
+                break
+            except Exception as e:
+                current_idx = gemini_diarize_fallbacks.index(model_to_use)
+                if current_idx < len(gemini_diarize_fallbacks) - 1:
+                    next_model = gemini_diarize_fallbacks[current_idx + 1]
+                    print(f"[STT-LOCAL] Model {model_to_use} failed ({repr(e)}). Switching to backup model {next_model} for diarization...")
+                    model_to_use = next_model
+                    time.sleep(1)
+                    continue
+                print(f"[STT-LOCAL] Gemini speaker diarization failed with {model_to_use}: {repr(e)}")
+                result_json = ""
+            
+    # Thử bằng Ollama nếu Gemini không hoạt động hoặc không có key
+    if not result_json:
+        try:
+            print("[STT-LOCAL] Call Ollama to diarize speakers semantically...")
+            from .llm_service import get_active_ollama_model
+            active_model = get_active_ollama_model()
+            
+            payload = {
+                "model": active_model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json"
+            }
+            
+            response = requests.post("http://localhost:11434/api/generate", json=payload, timeout=60)
+            if response.status_code == 200:
+                data = response.json()
+                raw_output = data.get("response", "")
+                match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw_output, re.IGNORECASE)
+                result_json = match.group(1).strip() if match else raw_output
+        except Exception as e:
+            print(f"[STT-LOCAL] Ollama speaker diarization failed ({repr(e)}).")
+            
+    if result_json:
+        try:
+            parsed_labels = json.loads(result_json)
+            label_map = {item["index"]: item["speaker"] for item in parsed_labels if "index" in item and "speaker" in item}
+            
+            for idx, chunk in enumerate(chunks):
+                chunk_index = idx + 1
+                if chunk_index in label_map:
+                    chunk["speaker"] = label_map[chunk_index]
+            print("[STT-LOCAL] Speaker labels successfully aligned.")
+        except Exception as parse_e:
+            print(f"[STT-LOCAL] Failed to parse LLM diarization response: {repr(parse_e)}")
+            
+    return chunks
 
-    Các tối ưu đã áp dụng:
-    - Model large-v3: chính xác nhất cho tiếng Việt
-    - language="vi": tránh auto-detect nhận sai ngôn ngữ
-    - beam_size=10: tìm kiếm rộng hơn → chính xác hơn (mặc định = 5)
-    - vad_filter=True: lọc khoảng lặng/tiếng ồn, giảm ảo giác văn bản
-    - condition_on_previous_text=True: dùng ngữ cảnh đoạn trước để đoán tiếp
-    - initial_prompt: cung cấp context cuộc họp để model nhận diện thuật ngữ tốt hơn
-    - no_speech_prob threshold: bỏ qua segment bị nhận diện sai (tiếng ồn)
+
+def transcribe_audio_local(audio_path: str, host: str = None, participants: str = None) -> dict:
+    """
+    Bóc băng audio → văn bản với độ chính xác cao nhất sử dụng mô hình local Faster-Whisper.
+    Sau đó tự động gán nhãn người nói (Speaker Diarization) bằng AI ngữ nghĩa.
     """
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Không tìm thấy file audio: {audio_path}")
@@ -118,10 +234,18 @@ def transcribe_audio_local(audio_path: str) -> str:
     final_text = " ".join(valid_segments)
     print(f"[STT-LOCAL] Total characters transcribed: {len(final_text)}")
 
+    chunks = [{"speaker": "Unknown", "text": t, "start": None, "end": None} for t in valid_segments]
+
+    # Thực hiện gán nhãn người nói bằng ngữ nghĩa (Semantic Diarization)
+    try:
+        chunks = semantically_diarize_whisper_chunks(chunks, host, participants)
+    except Exception as e:
+        print(f"[STT-LOCAL] Semantic diarization failed: {repr(e)}. Keeping default speaker labels.")
+
     # Trả về định dạng dict đồng nhất
     return {
         "full_text": final_text,
-        "chunks": [{"speaker": "Unknown", "text": t, "start": None, "end": None} for t in valid_segments]
+        "chunks": chunks
     }
 
 def clean_gemini_transcript(result_text: str) -> str:
@@ -274,22 +398,40 @@ def transcribe_single_gemini_chunk(client, audio_path: str, chunk_index: int, to
         max_retries = 3
         retry_delay = 5
         result_text = ""
+        gemini_stt_fallbacks = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"]
+        if GEMINI_STT_MODEL not in gemini_stt_fallbacks:
+            gemini_stt_fallbacks.insert(0, GEMINI_STT_MODEL)
+            
+        model_to_use = gemini_stt_fallbacks[0]
+        
         for attempt in range(max_retries):
             try:
+                print(f"[STT-GEMINI] [Chunk {chunk_index + 1}/{total_chunks}] Call Gemini ({model_to_use}) to transcribe...")
+                config = types.GenerateContentConfig(
+                    temperature=0.0,
+                    system_instruction="Bạn là chuyên gia bóc băng hội thoại và định danh người nói cấp cao. Hãy luôn tuân thủ nghiêm ngặt các yêu cầu về định dạng, cấu trúc và ánh xạ tên người nói dựa trên ngữ cảnh được cung cấp."
+                )
                 response = client.models.generate_content(
-                    model=GEMINI_STT_MODEL,
-                    contents=[audio_file, prompt]
+                    model=model_to_use,
+                    contents=[audio_file, prompt],
+                    config=config
                 )
                 result_text = response.text.strip()
                 break
             except Exception as e:
-                err_str = str(e).upper()
-                if "RESOURCE_EXHAUSTED" in err_str or "429" in err_str:
-                    if attempt < max_retries - 1:
-                        print(f"[STT-GEMINI] [Chunk {chunk_index + 1}/{total_chunks}] Rate limited (429). Retrying in {retry_delay}s... (Attempt {attempt + 1}/{max_retries})")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2  # Exponential backoff
-                        continue
+                current_idx = gemini_stt_fallbacks.index(model_to_use)
+                if current_idx < len(gemini_stt_fallbacks) - 1:
+                    next_model = gemini_stt_fallbacks[current_idx + 1]
+                    print(f"[STT-GEMINI] [Chunk {chunk_index + 1}/{total_chunks}] Error calling {model_to_use} ({repr(e)}). Switching to backup model {next_model}...")
+                    model_to_use = next_model
+                    time.sleep(2)
+                    continue
+                    
+                if attempt < max_retries - 1:
+                    print(f"[STT-GEMINI] [Chunk {chunk_index + 1}/{total_chunks}] Rate limited or failed. Retrying in {retry_delay}s... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
                 raise RuntimeError(f"Error calling Gemini in chunk {chunk_index + 1}: {str(e)}")
     finally:
         # Dọn dẹp file trên server của Google sau khi dùng xong
@@ -302,48 +444,41 @@ def transcribe_single_gemini_chunk(client, audio_path: str, chunk_index: int, to
     # Làm sạch tệp transcript (loại bỏ Bước 1 & Bước 2)
     dialogue_text = clean_gemini_transcript(result_text)
     
-    # Parse text thành các chunks hội thoại bằng giải thuật quét dòng có khử mốc thời gian
+    # Parse text thành các chunks hội thoại bằng giải thuật quét dòng cực kỳ mạnh mẽ, khử mốc thời gian và định dạng khác nhau
     chunks = []
     lines = dialogue_text.split("\n")
     for line in lines:
         if not line.strip():
             continue
             
-        clean_line = re.sub(
-            r"^\s*(?:-\s*)?(?:\[?\d{1,2}:\d{2}(?::\d{2})?\]?|(?:\d{1,2}:\d{2}(?::\d{2})?))\s*[-–—]?\s*",
-            "",
-            line
-        )
+        # Clean up leading bullet points, spaces, stars
+        cleaned_raw = re.sub(r'^\s*[-•*]\s*', '', line).strip()
         
-        # Định dạng 1: [Tên]: Nội dung
-        match1 = re.match(r"^\[([^\]]+)\]\s*:\s*(.*)$", clean_line)
-        if match1:
-            speaker = match1.group(1).replace("*", "").replace("[", "").replace("]", "").strip()
-            text = match1.group(2).strip()
-            chunks.append({"speaker": speaker, "text": text, "start": None, "end": None})
-            continue
+        # Tìm dấu phân cách ':' không phải là một phần của mốc thời gian kiểu hh:mm hay mm:ss
+        match_sep = re.search(r'(?<!\d):(?!\d)', cleaned_raw)
+        if match_sep:
+            idx = match_sep.start()
+            speaker_part = cleaned_raw[:idx].strip()
+            text_part = cleaned_raw[idx+1:].strip()
             
-        # Định dạng 2: **Tên**: Nội dung
-        match2 = re.match(r"^\*\*([^*:]+)\*\*\s*:\s*(.*)$", clean_line)
-        if match2:
-            speaker = match2.group(1).strip()
-            text = match2.group(2).strip()
-            chunks.append({"speaker": speaker, "text": text, "start": None, "end": None})
-            continue
+            # Làm sạch phần speaker_part:
+            # - Loại bỏ các mốc thời gian như [00:12], (00:12), 00:12, [01:23:45]
+            speaker_part = re.sub(r'\b\d{1,2}:\d{2}(?::\d{2})?\b', '', speaker_part)
+            # - Loại bỏ ngoặc vuông, ngoặc đơn, dấu sao, gạch ngang, dấu nháy
+            speaker_part = re.sub(r'[\[\]\(\)*\-–—\'\"]', '', speaker_part)
+            # - Làm sạch khoảng trắng thừa
+            speaker_part = re.sub(r'\s+', ' ', speaker_part).strip()
             
-        # Định dạng 3: Tên: Nội dung
-        match3 = re.match(r"^([^:]+)\s*:\s*(.*)$", clean_line)
-        if match3 and "[" not in match3.group(1):
-            speaker = match3.group(1).replace("*", "").replace("[", "").replace("]", "").strip()
-            text = match3.group(2).strip()
-            chunks.append({"speaker": speaker, "text": text, "start": None, "end": None})
-            continue
-            
-        # Fallback: nếu dòng không khớp định dạng nào, cộng dồn vào chunk trước đó
-        if chunks:
-            chunks[-1]["text"] += "\n" + clean_line.strip()
+            if not speaker_part:
+                speaker_part = "Người nói"
+                
+            chunks.append({"speaker": speaker_part, "text": text_part, "start": None, "end": None})
         else:
-            chunks.append({"speaker": "Người nói", "text": clean_line.strip(), "start": None, "end": None})
+            # Fallback: nếu dòng không khớp định dạng nào, cộng dồn vào chunk trước đó
+            if chunks:
+                chunks[-1]["text"] += "\n" + cleaned_raw
+            else:
+                chunks.append({"speaker": "Người nói", "text": cleaned_raw, "start": None, "end": None})
             
     return {
         "full_text": dialogue_text,
@@ -355,102 +490,109 @@ def transcribe_audio_with_gemini(audio_path: str, host: str = None, participants
     """
     Bóc băng audio → văn bản sử dụng Gemini Flagship (Hybrid Diarization Pipeline).
     Áp dụng kỹ thuật Chain-of-Thought (CoT) kết hợp Parallel Audio Chunking để tăng tốc gấp 5-8 lần.
+    Tự động chuyển đổi sang Faster-Whisper cục bộ nếu gặp lỗi API hoặc rate limit.
     """
     if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY not configured in the system.")
+        print("[STT-GEMINI] Warning: GEMINI_API_KEY not configured. Falling back to local Faster-Whisper (high accuracy)...")
+        return transcribe_audio_local(audio_path, host, participants)
         
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    
-    # 1. Đo lường thời lượng tệp âm thanh
-    from .storage_service import get_audio_duration
-    duration = get_audio_duration(audio_path)
-    print(f"[STT-GEMINI] Original audio duration: {duration} seconds.")
-    
-    # Kích thước phân đoạn lý tưởng: 5 phút (300 giây)
-    segment_length = 300
-    
-    # Nếu file ngắn hơn hoặc bằng 5 phút, hoặc không lấy được thời lượng, xử lý dạng đơn chunk như cũ
-    if duration <= segment_length:
-        print(f"[STT-GEMINI] Audio duration is short ({duration}s <= {segment_length}s). Processing as single chunk.")
-        return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
-        
-    # 2. Thực hiện chia nhỏ file bằng FFmpeg
-    segment_files = []
     try:
-        segment_files = split_audio_file(audio_path, segment_length)
-    except Exception as e:
-        print(f"[STT-GEMINI] Warning: Audio split failed ({repr(e)}). Falling back to single chunk.")
-        return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
+        client = genai.Client(api_key=GEMINI_API_KEY)
         
-    if not segment_files:
-        print("[STT-GEMINI] Warning: No segment files generated. Falling back to single chunk.")
-        return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
+        # 1. Đo lường thời lượng tệp âm thanh
+        from .storage_service import get_audio_duration
+        duration = get_audio_duration(audio_path)
+        print(f"[STT-GEMINI] Original audio duration: {duration} seconds.")
         
-    total_chunks = len(segment_files)
-    print(f"[STT-GEMINI] Starting parallel transcription of {total_chunks} chunks...")
-    
-    # 3. Chạy song song các chunk sử dụng ThreadPoolExecutor
-    chunk_results = [None] * total_chunks
-    try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=total_chunks) as executor:
-            future_to_index = {
-                executor.submit(
-                    transcribe_single_gemini_chunk,
-                    client,
-                    file_path,
-                    idx,
-                    total_chunks,
-                    host,
-                    participants
-                ): idx
-                for idx, file_path in enumerate(segment_files)
-            }
+        # Kích thước phân đoạn lý tưởng: 5 phút (300 giây)
+        segment_length = 300
+        
+        # Nếu file ngắn hơn hoặc bằng 5 phút, hoặc không lấy được thời lượng, xử lý dạng đơn chunk như cũ
+        if duration <= segment_length:
+            print(f"[STT-GEMINI] Audio duration is short ({duration}s <= {segment_length}s). Processing as single chunk.")
+            return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
             
-            for future in concurrent.futures.as_completed(future_to_index):
-                idx = future_to_index[future]
-                try:
-                    res = future.result()
-                    chunk_results[idx] = res
-                except Exception as exc:
-                    print(f"[STT-GEMINI] Chunk {idx + 1} generated an exception: {exc}")
-                    raise exc
-    except Exception as e:
-        print(f"[STT-GEMINI] Error during parallel processing: {repr(e)}. Falling back to single chunk.")
-        # Dọn dẹp các tệp phân đoạn tạm thời
+        # 2. Thực hiện chia nhỏ file bằng FFmpeg
+        segment_files = []
+        try:
+            segment_files = split_audio_file(audio_path, segment_length)
+        except Exception as e:
+            print(f"[STT-GEMINI] Warning: Audio split failed ({repr(e)}). Falling back to single chunk.")
+            return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
+            
+        if not segment_files:
+            print("[STT-GEMINI] Warning: No segment files generated. Falling back to single chunk.")
+            return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
+            
+        total_chunks = len(segment_files)
+        print(f"[STT-GEMINI] Starting parallel transcription of {total_chunks} chunks...")
+        
+        # 3. Chạy song song các chunk sử dụng ThreadPoolExecutor
+        chunk_results = [None] * total_chunks
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=total_chunks) as executor:
+                future_to_index = {
+                    executor.submit(
+                        transcribe_single_gemini_chunk,
+                        client,
+                        file_path,
+                        idx,
+                        total_chunks,
+                        host,
+                        participants
+                    ): idx
+                    for idx, file_path in enumerate(segment_files)
+                }
+                
+                for future in concurrent.futures.as_completed(future_to_index):
+                    idx = future_to_index[future]
+                    try:
+                        res = future.result()
+                        chunk_results[idx] = res
+                    except Exception as exc:
+                        print(f"[STT-GEMINI] Chunk {idx + 1} generated an exception: {exc}")
+                        raise exc
+        except Exception as e:
+            print(f"[STT-GEMINI] Error during parallel processing: {repr(e)}. Falling back to single chunk...")
+            return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
+            
+        # Dọn dẹp các tệp phân đoạn tạm thời trên đĩa cứng local sau khi xử lý xong
         for f in segment_files:
             try:
                 if os.path.exists(f):
                     os.remove(f)
-            except Exception:
-                pass
-        return transcribe_single_gemini_chunk(client, audio_path, 0, 1, host, participants)
+            except Exception as err:
+                print(f"[STT-GEMINI] Warning: Failed to delete temp segment file {f}: {err}")
+                
+        # 4. Hợp nhất kết quả của các chunk một cách mạch lạc
+        print("[STT-GEMINI] All chunks transcribed successfully. Merging results...")
         
-    # Dọn dẹp các tệp phân đoạn tạm thời trên đĩa cứng local sau khi xử lý xong
-    for f in segment_files:
-        try:
-            if os.path.exists(f):
-                os.remove(f)
-        except Exception as err:
-            print(f"[STT-GEMINI] Warning: Failed to delete temp segment file {f}: {err}")
-            
-    # 4. Hợp nhất kết quả của các chunk một cách mạch lạc
-    print("[STT-GEMINI] All chunks transcribed successfully. Merging results...")
-    
-    merged_full_text_list = []
-    merged_chunks = []
-    
-    for idx, res in enumerate(chunk_results):
-        if res:
-            merged_full_text_list.append(f"[Phần {idx + 1}]:\n{res['full_text']}")
-            merged_chunks.extend(res["chunks"])
-            
-    merged_full_text = "\n\n".join(merged_full_text_list)
-    print(f"[STT-GEMINI] Completed merge. Total characters: {len(merged_full_text)}, Total chunks: {len(merged_chunks)}")
-    
-    return {
-        "full_text": merged_full_text,
-        "chunks": merged_chunks
-    }
+        merged_full_text_list = []
+        merged_chunks = []
+        
+        for idx, res in enumerate(chunk_results):
+            if res:
+                merged_full_text_list.append(f"[Phần {idx + 1}]:\n{res['full_text']}")
+                merged_chunks.extend(res["chunks"])
+                
+        merged_full_text = "\n\n".join(merged_full_text_list)
+        print(f"[STT-GEMINI] Completed merge. Total characters: {len(merged_full_text)}, Total chunks: {len(merged_chunks)}")
+        
+        return {
+            "full_text": merged_full_text,
+            "chunks": merged_chunks
+        }
+    except Exception as outer_e:
+        print(f"[STT-GEMINI] Critical Error: {repr(outer_e)}. Automatically falling back to local Faster-Whisper (high accuracy)...")
+        # Khôi phục dọn dẹp các phân đoạn nếu có
+        if 'segment_files' in locals() and segment_files:
+            for f in segment_files:
+                try:
+                    if os.path.exists(f):
+                        os.remove(f)
+                except Exception:
+                    pass
+        return transcribe_audio_local(audio_path, host, participants)
 
 import numpy as np
 
