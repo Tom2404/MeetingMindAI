@@ -264,11 +264,18 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
   const [transcriptChunks, setTranscriptChunks]   = useState([]);
   const [activeTab, setActiveTab]           = useState('summary'); 
   const [viewMode, setViewMode]             = useState('bubbles'); // 'bubbles' or 'raw'
+  const [loadedMeetingName, setLoadedMeetingName] = useState(meetingInfo?.meetingName || '');
   
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  useEffect(() => {
+    if (meetingInfo?.meetingName) {
+      setLoadedMeetingName(meetingInfo.meetingName);
+    }
+  }, [meetingInfo]);
 
   useEffect(() => {
     if (onSaveStateChange) {
@@ -312,6 +319,9 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
       if (!res.ok) throw new Error(`server:${res.status}`);
       const data = await res.json();
       setSummaryData(data.summary);
+      if (data.meeting && data.meeting.title) {
+        setLoadedMeetingName(data.meeting.title);
+      }
       if (data.transcript) {
         setEditableTranscript(data.transcript);
         if (data.chunks && data.chunks.length > 0) {
@@ -579,7 +589,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   const handleExportTxt = () => {
     if (!displayedSummaryData) return;
-    const title = meetingInfo?.meetingName || meetingId || 'Meeting';
+    const title = loadedMeetingName || meetingInfo?.meetingName || meetingId || 'Meeting';
     let t = `KẾT QUẢ CUỘC HỌP: ${title}\n${'='.repeat(50)}\n\n`;
     if (meetingInfo) {
       if (meetingInfo.host) t += `Chủ trì:  ${meetingInfo.host}\n`;
@@ -608,7 +618,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   const handleExportMarkdown = () => {
     if (!displayedSummaryData) return;
-    const title = meetingInfo?.meetingName || meetingId || 'Meeting';
+    const title = loadedMeetingName || meetingInfo?.meetingName || meetingId || 'Meeting';
     let md = `# BIÊN BẢN CUỘC HỌP: ${title}\n\n`;
     if (meetingInfo) {
       if (meetingInfo.host) md += `**Người chủ trì:** ${meetingInfo.host}  \n`;
@@ -653,7 +663,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
 
   const handleExportDocx = () => {
     if (!displayedSummaryData) return;
-    const title = meetingInfo?.meetingName || meetingId || 'Meeting';
+    const title = loadedMeetingName || meetingInfo?.meetingName || meetingId || 'Meeting';
     
     // Tạo cấu trúc HTML có style chuyên nghiệp để MS Word đọc trực tiếp
     let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">`;
@@ -888,7 +898,7 @@ const MeetingSummary = ({ meetingId, activeTranscript, activeChunks, viewingSumm
     );
   };
 
-  const title = meetingInfo?.meetingName || meetingId || 'Chưa đặt tên';
+  const title = loadedMeetingName || meetingInfo?.meetingName || meetingId || 'Chưa đặt tên';
   
   const displayedSummaryData = (showOriginalLanguage && summaryDataOriginal) ? summaryDataOriginal : summaryData;
 
